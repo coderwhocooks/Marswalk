@@ -180,6 +180,8 @@ def main():
     app.setStyle("Fusion")
     window = MarswalkMainWindow()
     window.show()
+    window.raise_()
+    window.activateWindow()
     sys.exit(app.exec())
 
 if __name__ == "__main__":

@@ -13,7 +13,7 @@ import {
   Globe2
 } from 'lucide-react';
 import { MapViewer } from './components/MapViewer';
-import { Mars3DViewer } from './components/Mars3DViewer';
+import { MarsGlobeViewer } from './components/MarsGlobeViewer';
 import { ElevationProfile } from './components/ElevationProfile';
 import { MissionPlanner } from './components/MissionPlanner';
 import { RouteComparison } from './components/RouteComparison';
@@ -276,7 +276,7 @@ export function App() {
               }`}
             >
               <Globe2 className="w-3.5 h-3.5" />
-              3D Terrain
+              3D Mars Globe
             </button>
             <button
               onClick={() => setViewMode('2d')}
@@ -508,7 +508,7 @@ export function App() {
           {/* Main Planetary Viewport */}
           <div className="flex-1 relative">
             {viewMode === '3d' ? (
-              <Mars3DViewer
+              <MarsGlobeViewer
                 meshData={meshData}
                 routePlan={routePlan}
                 startCoords={startCoords}
