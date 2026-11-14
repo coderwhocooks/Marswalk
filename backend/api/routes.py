@@ -12,6 +12,7 @@ from backend.api.schemas import (
     CoverageResponse,
     PointTerrainRequest,
     PointTerrainResponse,
+    TerrainMesh3DResponse,
     ScienceTargetResponse,
     EnvironmentRequest,
     RoutePlanRequest,
@@ -249,6 +250,44 @@ def get_point_terrain(req: PointTerrainRequest):
         roughness_m=round(rough, 2) if rough is not None else None,
         is_traversable=traversable,
         nodata=nodata
+    )
+
+@api_router.get("/terrain/mesh-3d", response_model=TerrainMesh3DResponse)
+def get_terrain_mesh_3d(subsample: int = Query(10, ge=4, le=40)):
+    """
+    Generate downsampled 3D elevation vertex mesh for WebGL / Three.js surface rendering.
+    """
+    terrain = get_terrain()
+    sub_elev = terrain.elevation[::subsample, ::subsample]
+    valid = sub_elev[~np.isnan(sub_elev) & (sub_elev > -10000.0)]
+    min_elev = float(valid.min()) if len(valid) > 0 else -2500.0
+    max_elev = float(valid.max()) if len(valid) > 0 else -1500.0
+
+    clean_elev = np.copy(sub_elev)
+    clean_elev[np.isnan(clean_elev) | (clean_elev <= -10000.0)] = min_elev
+
+    h, w = clean_elev.shape
+    flat_list = [round(float(val), 1) for val in clean_elev.flatten()]
+
+    return TerrainMesh3DResponse(
+        grid_width=w,
+        grid_height=h,
+        elevations=flat_list,
+        min_elev_m=round(min_elev, 1),
+        max_elev_m=round(max_elev, 1),
+        bounds_lonlat=[
+            round(terrain.geodesy.lon_min, 4),
+            round(terrain.geodesy.lat_min, 4),
+            round(terrain.geodesy.lon_max, 4),
+            round(terrain.geodesy.lat_max, 4)
+        ],
+        bounds_meters=[
+            round(terrain.geodesy.x_min, 1),
+            round(terrain.geodesy.y_min, 1),
+            round(terrain.geodesy.x_max, 1),
+            round(terrain.geodesy.y_max, 1)
+        ],
+        pixel_size_m=terrain.pixel_size * subsample
     )
 
 @api_router.get("/science-targets", response_model=List[ScienceTargetResponse])

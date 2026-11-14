@@ -13,6 +13,7 @@ import {
   Globe2
 } from 'lucide-react';
 import { MapViewer } from './components/MapViewer';
+import { Mars3DViewer } from './components/Mars3DViewer';
 import { ElevationProfile } from './components/ElevationProfile';
 import { MissionPlanner } from './components/MissionPlanner';
 import { RouteComparison } from './components/RouteComparison';
@@ -28,7 +29,8 @@ import {
   RouteCompareResponse,
   MissionSimulateResponse,
   EnvironmentalConditions,
-  DatasetMetadata
+  DatasetMetadata,
+  TerrainMesh3DResponse
 } from './types';
 
 import {
@@ -38,7 +40,8 @@ import {
   planRoute,
   compareRoutes,
   simulateMission,
-  generateReport
+  generateReport,
+  fetchTerrainMesh3D
 } from './services/api';
 
 export function App() {
@@ -54,6 +57,7 @@ export function App() {
   const [selectedTargetId, setSelectedTargetId] = useState<string | undefined>('JEZ-SCI-02');
 
   // Map & Interaction State
+  const [viewMode, setViewMode] = useState<'3d' | '2d'>('3d');
   const [clickMode, setClickMode] = useState<'start' | 'target' | 'inspect'>('target');
   const [activeBaseLayer, setActiveBaseLayer] = useState<string>('ctx');
   const [showSlopeOverlay, setShowSlopeOverlay] = useState<boolean>(true);
@@ -74,6 +78,7 @@ export function App() {
   const [environment, setEnvironment] = useState<EnvironmentalConditions | undefined>(undefined);
   const [scienceTargets, setScienceTargets] = useState<ScienceTarget[]>([]);
   const [datasets, setDatasets] = useState<DatasetMetadata[]>([]);
+  const [meshData, setMeshData] = useState<TerrainMesh3DResponse | undefined>(undefined);
 
   // Briefing Modal
   const [isBriefingOpen, setIsBriefingOpen] = useState<boolean>(false);
@@ -84,14 +89,16 @@ export function App() {
   useEffect(() => {
     async function init() {
       try {
-        const [targets, envData, dsList] = await Promise.all([
+        const [targets, envData, dsList, mesh] = await Promise.all([
           fetchScienceTargets(startCoords[0], startCoords[1]),
           fetchEnvironment(lmstHour, 4.0),
-          fetchDatasets()
+          fetchDatasets(),
+          fetchTerrainMesh3D(10)
         ]);
         setScienceTargets(targets);
         setEnvironment(envData);
         setDatasets(dsList);
+        setMeshData(mesh);
 
         // Auto-run initial baseline route
         handlePlanRoute();
@@ -258,6 +265,32 @@ export function App() {
 
         {/* Global Controls & Status */}
         <div className="flex items-center gap-3">
+          {/* 2D / 3D Mode Toggle */}
+          <div className="flex items-center bg-mars-dark/80 border border-mars-border p-0.5 rounded-lg text-xs font-medium">
+            <button
+              onClick={() => setViewMode('3d')}
+              className={`px-3 py-1 rounded-md flex items-center gap-1.5 transition ${
+                viewMode === '3d'
+                  ? 'bg-mars-accent text-black font-bold shadow'
+                  : 'text-mars-subtle hover:text-white'
+              }`}
+            >
+              <Globe2 className="w-3.5 h-3.5" />
+              3D Terrain
+            </button>
+            <button
+              onClick={() => setViewMode('2d')}
+              className={`px-3 py-1 rounded-md flex items-center gap-1.5 transition ${
+                viewMode === '2d'
+                  ? 'bg-mars-accent text-black font-bold shadow'
+                  : 'text-mars-subtle hover:text-white'
+              }`}
+            >
+              <Layers className="w-3.5 h-3.5" />
+              2D Tactical GIS
+            </button>
+          </div>
+
           <div className="flex items-center gap-2 bg-mars-dark/60 border border-mars-border px-3 py-1.5 rounded-lg text-xs font-mono">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
             <span className="text-mars-subtle">USGS 20m DTM:</span>
@@ -470,22 +503,35 @@ export function App() {
           )}
         </aside>
 
-        {/* Center / Right Stage: Map & Elevation Cross Section */}
+        {/* Center / Right Stage: 3D Terrain or 2D Map & Elevation Cross Section */}
         <main className="flex-1 flex flex-col h-full overflow-hidden bg-mars-dark relative">
-          {/* Main Planetary Map View */}
+          {/* Main Planetary Viewport */}
           <div className="flex-1 relative">
-            <MapViewer
-              startCoords={startCoords}
-              targetCoords={targetCoords}
-              scienceTargets={showScienceMarkers ? scienceTargets : []}
-              selectedTargetId={selectedTargetId}
-              routePlan={routePlan}
-              altRoutePlan={altRoutePlan}
-              activeBaseLayer={activeBaseLayer}
-              clickMode={clickMode}
-              onMapClick={handleMapClick}
-              onTargetSelect={handleSelectScienceTarget}
-            />
+            {viewMode === '3d' ? (
+              <Mars3DViewer
+                meshData={meshData}
+                routePlan={routePlan}
+                startCoords={startCoords}
+                targetCoords={targetCoords}
+                scienceTargets={showScienceMarkers ? scienceTargets : []}
+                selectedTargetId={selectedTargetId}
+                environment={environment}
+                onSelectTarget={handleSelectScienceTarget}
+              />
+            ) : (
+              <MapViewer
+                startCoords={startCoords}
+                targetCoords={targetCoords}
+                scienceTargets={showScienceMarkers ? scienceTargets : []}
+                selectedTargetId={selectedTargetId}
+                routePlan={routePlan}
+                altRoutePlan={altRoutePlan}
+                activeBaseLayer={activeBaseLayer}
+                clickMode={clickMode}
+                onMapClick={handleMapClick}
+                onTargetSelect={handleSelectScienceTarget}
+              />
+            )}
           </div>
 
           {/* Bottom Dock: Topographic Cross-Section Profile */}

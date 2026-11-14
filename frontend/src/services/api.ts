@@ -7,7 +7,8 @@ import {
   RoutePlanResponse,
   RouteCompareResponse,
   MissionSimulateResponse,
-  PointTerrainResponse
+  PointTerrainResponse,
+  TerrainMesh3DResponse
 } from '../types';
 
 const API_BASE = '/api/v1';
@@ -27,6 +28,12 @@ export async function fetchLayers(): Promise<LayerDefinition[]> {
 export async function fetchCoverage(): Promise<CoverageResponse> {
   const res = await fetch(`${API_BASE}/coverage`);
   if (!res.ok) throw new Error('Failed to fetch coverage bounds');
+  return res.json();
+}
+
+export async function fetchTerrainMesh3D(subsample: number = 10): Promise<TerrainMesh3DResponse> {
+  const res = await fetch(`${API_BASE}/terrain/mesh-3d?subsample=${subsample}`);
+  if (!res.ok) throw new Error('Failed to fetch 3D terrain mesh');
   return res.json();
 }
 

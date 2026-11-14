@@ -48,6 +48,15 @@ def test_point_terrain_query():
     assert data["elevation_m"] is not None
     assert -2600.0 < data["elevation_m"] < -2400.0
 
+def test_terrain_mesh_3d():
+    resp = client.get("/api/v1/terrain/mesh-3d?subsample=15")
+    assert resp.status_code == 200
+    mesh = resp.json()
+    assert mesh["grid_width"] > 50
+    assert mesh["grid_height"] > 50
+    assert len(mesh["elevations"]) == mesh["grid_width"] * mesh["grid_height"]
+    assert mesh["min_elev_m"] < mesh["max_elev_m"]
+
 def test_get_science_targets():
     resp = client.get("/api/v1/science-targets")
     assert resp.status_code == 200

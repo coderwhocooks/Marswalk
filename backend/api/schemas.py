@@ -49,6 +49,16 @@ class PointTerrainResponse(BaseModel):
     is_traversable: bool
     nodata: bool
 
+class TerrainMesh3DResponse(BaseModel):
+    grid_width: int
+    grid_height: int
+    elevations: List[float] # flattened row-major list
+    min_elev_m: float
+    max_elev_m: float
+    bounds_lonlat: List[float] # [min_lon, min_lat, max_lon, max_lat]
+    bounds_meters: List[float] # [min_x, min_y, max_x, max_y]
+    pixel_size_m: float
+
 class ScienceTargetResponse(BaseModel):
     target_id: str
     name: str

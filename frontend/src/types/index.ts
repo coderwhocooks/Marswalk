@@ -133,3 +133,14 @@ export interface PointTerrainResponse {
   is_traversable: boolean;
   nodata: boolean;
 }
+
+export interface TerrainMesh3DResponse {
+  grid_width: number;
+  grid_height: number;
+  elevations: number[];
+  min_elev_m: number;
+  max_elev_m: number;
+  bounds_lonlat: [number, number, number, number];
+  bounds_meters: [number, number, number, number];
+  pixel_size_m: number;
+}
