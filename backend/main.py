@@ -2,7 +2,15 @@
 MARSWALK: Martian Astronaut Route and Scientific Exploration Planner
 NASA Space Apps Challenge 2026 Core API Service.
 """
+import sys
 import os
+from pathlib import Path
+
+# Ensure project root is in sys.path regardless of execution working directory
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -47,4 +55,4 @@ else:
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("backend.main:app", host="0.0.0.0", port=8000, reload=True, app_dir=str(PROJECT_ROOT))
