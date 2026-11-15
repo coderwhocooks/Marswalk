@@ -10,7 +10,10 @@ import {
   ChevronLeft,
   ChevronRight,
   ShieldCheck,
-  Globe2
+  Globe2,
+  RotateCcw,
+  Home,
+  Flame
 } from 'lucide-react';
 import { MapViewer } from './components/MapViewer';
 import { MarsGlobeViewer } from './components/MarsGlobeViewer';
@@ -22,6 +25,10 @@ import { ScienceTargetPanel } from './components/ScienceTargetPanel';
 import { EnvironmentalPanel } from './components/EnvironmentalPanel';
 import { SimulationGauge } from './components/SimulationGauge';
 import { BriefingModal } from './components/BriefingModal';
+import { ConfidencePanel } from './components/ConfidencePanel';
+import { ReturnabilityPanel } from './components/ReturnabilityPanel';
+import { MobilityPanel } from './components/MobilityPanel';
+import { HabitatPanel } from './components/HabitatPanel';
 
 import {
   ScienceTarget,
@@ -30,13 +37,15 @@ import {
   MissionSimulateResponse,
   EnvironmentalConditions,
   DatasetMetadata,
-  TerrainMesh3DResponse
+  TerrainMesh3DResponse,
+  HabitatCandidate
 } from './types';
 
 import {
   fetchScienceTargets,
   fetchEnvironment,
   fetchDatasets,
+  fetchHabitatCandidates,
   planRoute,
   compareRoutes,
   simulateMission,
@@ -46,7 +55,9 @@ import {
 
 export function App() {
   // Navigation & Tabs
-  const [activeTab, setActiveTab] = useState<'planner' | 'science' | 'environment' | 'simulation' | 'datasets'>('planner');
+  const [activeTab, setActiveTab] = useState<
+    'planner' | 'confidence' | 'returnability' | 'science' | 'mobility' | 'habitat' | 'environment' | 'simulation' | 'datasets'
+  >('planner');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   // Staging & Target Waypoints (Defaults to Octavia Butler Landing -> Hawksbill Gap)
@@ -72,11 +83,13 @@ export function App() {
   // Calculation Results
   const [isCalculating, setIsCalculating] = useState<boolean>(false);
   const [routePlan, setRoutePlan] = useState<RoutePlanResponse | undefined>(undefined);
+  const [returnRoute, setReturnRoute] = useState<RoutePlanResponse | undefined>(undefined);
   const [altRoutePlan, setAltRoutePlan] = useState<RoutePlanResponse | undefined>(undefined);
   const [comparison, setComparison] = useState<RouteCompareResponse | undefined>(undefined);
   const [simulation, setSimulation] = useState<MissionSimulateResponse | undefined>(undefined);
   const [environment, setEnvironment] = useState<EnvironmentalConditions | undefined>(undefined);
   const [scienceTargets, setScienceTargets] = useState<ScienceTarget[]>([]);
+  const [habitatCandidates, setHabitatCandidates] = useState<HabitatCandidate[]>([]);
   const [datasets, setDatasets] = useState<DatasetMetadata[]>([]);
   const [meshData, setMeshData] = useState<TerrainMesh3DResponse | undefined>(undefined);
 
@@ -89,16 +102,18 @@ export function App() {
   useEffect(() => {
     async function init() {
       try {
-        const [targets, envData, dsList, mesh] = await Promise.all([
+        const [targets, envData, dsList, mesh, habs] = await Promise.all([
           fetchScienceTargets(startCoords[0], startCoords[1]),
           fetchEnvironment(lmstHour, 4.0),
           fetchDatasets(),
-          fetchTerrainMesh3D(10)
+          fetchTerrainMesh3D(10),
+          fetchHabitatCandidates()
         ]);
         setScienceTargets(targets);
         setEnvironment(envData);
         setDatasets(dsList);
         setMeshData(mesh);
+        setHabitatCandidates(habs);
 
         // Auto-run initial baseline route
         handlePlanRoute();
@@ -321,24 +336,24 @@ export function App() {
         >
           {sidebarCollapsed ? (
             /* Collapsed Vertical Icon Bar */
-            <div className="flex flex-col items-center py-2.5 h-full gap-2 shrink-0">
+            <div className="flex flex-col items-center py-2 h-full gap-1.5 shrink-0 overflow-y-auto">
               <button
                 onClick={() => setSidebarCollapsed(false)}
-                className="p-2.5 text-mars-subtle hover:text-white hover:bg-mars-dark/60 rounded-lg transition"
+                className="p-2 text-mars-subtle hover:text-white hover:bg-mars-dark/60 rounded-lg transition"
                 title="Expand Panel"
                 aria-label="Expand Panel"
               >
                 <ChevronRight className="w-4 h-4 text-mars-accent" />
               </button>
 
-              <div className="w-8 border-b border-mars-border/60 my-1" />
+              <div className="w-8 border-b border-mars-border/60 my-0.5" />
 
               <button
                 onClick={() => {
                   setActiveTab('planner');
                   setSidebarCollapsed(false);
                 }}
-                className={`p-2.5 rounded-lg transition ${
+                className={`p-2 rounded-lg transition ${
                   activeTab === 'planner'
                     ? 'text-white bg-mars-red/30 border border-mars-red'
                     : 'text-mars-subtle hover:text-white hover:bg-mars-dark/60'
@@ -351,18 +366,82 @@ export function App() {
 
               <button
                 onClick={() => {
+                  setActiveTab('confidence');
+                  setSidebarCollapsed(false);
+                }}
+                className={`p-2 rounded-lg transition ${
+                  activeTab === 'confidence'
+                    ? 'text-emerald-300 bg-emerald-500/30 border border-emerald-500'
+                    : 'text-mars-subtle hover:text-white hover:bg-mars-dark/60'
+                }`}
+                title="Mission Confidence Engine"
+                aria-label="Mission Confidence Engine"
+              >
+                <ShieldCheck className="w-4 h-4" />
+              </button>
+
+              <button
+                onClick={() => {
+                  setActiveTab('returnability');
+                  setSidebarCollapsed(false);
+                }}
+                className={`p-2 rounded-lg transition ${
+                  activeTab === 'returnability'
+                    ? 'text-cyan-300 bg-cyan-500/30 border border-cyan-500'
+                    : 'text-mars-subtle hover:text-white hover:bg-mars-dark/60'
+                }`}
+                title="Returnability Intelligence"
+                aria-label="Returnability Intelligence"
+              >
+                <RotateCcw className="w-4 h-4" />
+              </button>
+
+              <button
+                onClick={() => {
                   setActiveTab('science');
                   setSidebarCollapsed(false);
                 }}
-                className={`p-2.5 rounded-lg transition ${
+                className={`p-2 rounded-lg transition ${
                   activeTab === 'science'
                     ? 'text-purple-300 bg-purple-500/30 border border-purple-500'
                     : 'text-mars-subtle hover:text-white hover:bg-mars-dark/60'
                 }`}
-                title="Science Targets"
-                aria-label="Science Targets"
+                title="Scientific Targets & Discovery"
+                aria-label="Scientific Targets & Discovery"
               >
                 <Sparkles className="w-4 h-4" />
+              </button>
+
+              <button
+                onClick={() => {
+                  setActiveTab('mobility');
+                  setSidebarCollapsed(false);
+                }}
+                className={`p-2 rounded-lg transition ${
+                  activeTab === 'mobility'
+                    ? 'text-rose-300 bg-rose-500/30 border border-rose-500'
+                    : 'text-mars-subtle hover:text-white hover:bg-mars-dark/60'
+                }`}
+                title="Human Mobility & Fatigue"
+                aria-label="Human Mobility & Fatigue"
+              >
+                <Flame className="w-4 h-4" />
+              </button>
+
+              <button
+                onClick={() => {
+                  setActiveTab('habitat');
+                  setSidebarCollapsed(false);
+                }}
+                className={`p-2 rounded-lg transition ${
+                  activeTab === 'habitat'
+                    ? 'text-sky-300 bg-sky-500/30 border border-sky-500'
+                    : 'text-mars-subtle hover:text-white hover:bg-mars-dark/60'
+                }`}
+                title="Habitat Base Siting (MCDA)"
+                aria-label="Habitat Base Siting (MCDA)"
+              >
+                <Home className="w-4 h-4" />
               </button>
 
               <button
@@ -370,13 +449,13 @@ export function App() {
                   setActiveTab('environment');
                   setSidebarCollapsed(false);
                 }}
-                className={`p-2.5 rounded-lg transition ${
+                className={`p-2 rounded-lg transition ${
                   activeTab === 'environment'
                     ? 'text-emerald-300 bg-emerald-500/30 border border-emerald-500'
                     : 'text-mars-subtle hover:text-white hover:bg-mars-dark/60'
                 }`}
-                title="MEDA Environment"
-                aria-label="MEDA Environment"
+                title="MEDA & InSight Telemetry"
+                aria-label="MEDA & InSight Telemetry"
               >
                 <Activity className="w-4 h-4" />
               </button>
@@ -386,7 +465,7 @@ export function App() {
                   setActiveTab('simulation');
                   setSidebarCollapsed(false);
                 }}
-                className={`p-2.5 rounded-lg transition ${
+                className={`p-2 rounded-lg transition ${
                   activeTab === 'simulation'
                     ? 'text-sky-300 bg-sky-500/30 border border-sky-500'
                     : 'text-mars-subtle hover:text-white hover:bg-mars-dark/60'
@@ -402,7 +481,7 @@ export function App() {
                   setActiveTab('datasets');
                   setSidebarCollapsed(false);
                 }}
-                className={`p-2.5 rounded-lg transition ${
+                className={`p-2 rounded-lg transition ${
                   activeTab === 'datasets'
                     ? 'text-white bg-slate-500/30 border border-slate-400'
                     : 'text-mars-subtle hover:text-white hover:bg-mars-dark/60'
@@ -416,75 +495,127 @@ export function App() {
           ) : (
             <>
               {/* Tab Selector Bar */}
-              <div className="flex items-center border-b border-mars-border bg-mars-dark/40 overflow-x-auto text-xs shrink-0">
+              <div className="flex items-center border-b border-mars-border bg-mars-dark/40 overflow-x-auto text-xs shrink-0 scrollbar-none">
                 <button
                   onClick={() => setActiveTab('planner')}
-                  className={`p-2.5 flex-1 flex flex-col items-center justify-center gap-1 transition ${
+                  className={`p-2 flex-1 min-w-[50px] flex flex-col items-center justify-center gap-0.5 transition ${
                     activeTab === 'planner'
                       ? 'border-b-2 border-mars-red text-white font-semibold bg-mars-panel/60'
                       : 'text-mars-subtle hover:text-white'
                   }`}
                   title="Traverse Planner"
                 >
-                  <Compass className="w-4 h-4" />
-                  <span className="text-[10px]">Planner</span>
+                  <Compass className="w-3.5 h-3.5" />
+                  <span className="text-[9px]">Planner</span>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('confidence')}
+                  className={`p-2 flex-1 min-w-[50px] flex flex-col items-center justify-center gap-0.5 transition ${
+                    activeTab === 'confidence'
+                      ? 'border-b-2 border-emerald-400 text-emerald-300 font-semibold bg-mars-panel/60'
+                      : 'text-mars-subtle hover:text-white'
+                  }`}
+                  title="Mission Confidence"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span className="text-[9px]">Confidence</span>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('returnability')}
+                  className={`p-2 flex-1 min-w-[50px] flex flex-col items-center justify-center gap-0.5 transition ${
+                    activeTab === 'returnability'
+                      ? 'border-b-2 border-cyan-400 text-cyan-300 font-semibold bg-mars-panel/60'
+                      : 'text-mars-subtle hover:text-white'
+                  }`}
+                  title="Returnability Intelligence"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                  <span className="text-[9px]">Return</span>
                 </button>
 
                 <button
                   onClick={() => setActiveTab('science')}
-                  className={`p-2.5 flex-1 flex flex-col items-center justify-center gap-1 transition ${
+                  className={`p-2 flex-1 min-w-[50px] flex flex-col items-center justify-center gap-0.5 transition ${
                     activeTab === 'science'
                       ? 'border-b-2 border-purple-500 text-purple-300 font-semibold bg-mars-panel/60'
                       : 'text-mars-subtle hover:text-white'
                   }`}
                   title="Science Targets"
                 >
-                  <Sparkles className="w-4 h-4" />
-                  <span className="text-[10px]">Science</span>
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span className="text-[9px]">Science</span>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('mobility')}
+                  className={`p-2 flex-1 min-w-[50px] flex flex-col items-center justify-center gap-0.5 transition ${
+                    activeTab === 'mobility'
+                      ? 'border-b-2 border-rose-500 text-rose-300 font-semibold bg-mars-panel/60'
+                      : 'text-mars-subtle hover:text-white'
+                  }`}
+                  title="Human Mobility & Fatigue"
+                >
+                  <Flame className="w-3.5 h-3.5" />
+                  <span className="text-[9px]">Mobility</span>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('habitat')}
+                  className={`p-2 flex-1 min-w-[50px] flex flex-col items-center justify-center gap-0.5 transition ${
+                    activeTab === 'habitat'
+                      ? 'border-b-2 border-sky-400 text-sky-300 font-semibold bg-mars-panel/60'
+                      : 'text-mars-subtle hover:text-white'
+                  }`}
+                  title="Habitat Site Siting"
+                >
+                  <Home className="w-3.5 h-3.5" />
+                  <span className="text-[9px]">Habitat</span>
                 </button>
 
                 <button
                   onClick={() => setActiveTab('environment')}
-                  className={`p-2.5 flex-1 flex flex-col items-center justify-center gap-1 transition ${
+                  className={`p-2 flex-1 min-w-[50px] flex flex-col items-center justify-center gap-0.5 transition ${
                     activeTab === 'environment'
                       ? 'border-b-2 border-emerald-500 text-emerald-300 font-semibold bg-mars-panel/60'
                       : 'text-mars-subtle hover:text-white'
                   }`}
-                  title="MEDA Environment"
+                  title="MEDA & InSight"
                 >
-                  <Activity className="w-4 h-4" />
-                  <span className="text-[10px]">MEDA</span>
+                  <Activity className="w-3.5 h-3.5" />
+                  <span className="text-[9px]">MEDA</span>
                 </button>
 
                 <button
                   onClick={() => setActiveTab('simulation')}
-                  className={`p-2.5 flex-1 flex flex-col items-center justify-center gap-1 transition ${
+                  className={`p-2 flex-1 min-w-[50px] flex flex-col items-center justify-center gap-0.5 transition ${
                     activeTab === 'simulation'
                       ? 'border-b-2 border-mars-accent text-sky-300 font-semibold bg-mars-panel/60'
                       : 'text-mars-subtle hover:text-white'
                   }`}
                   title="Life Support"
                 >
-                  <Clock className="w-4 h-4" />
-                  <span className="text-[10px]">Support</span>
+                  <Clock className="w-3.5 h-3.5" />
+                  <span className="text-[9px]">Support</span>
                 </button>
 
                 <button
                   onClick={() => setActiveTab('datasets')}
-                  className={`p-2.5 flex-1 flex flex-col items-center justify-center gap-1 transition ${
+                  className={`p-2 flex-1 min-w-[50px] flex flex-col items-center justify-center gap-0.5 transition ${
                     activeTab === 'datasets'
                       ? 'border-b-2 border-slate-400 text-white font-semibold bg-mars-panel/60'
                       : 'text-mars-subtle hover:text-white'
                   }`}
                   title="Datasets"
                 >
-                  <Database className="w-4 h-4" />
-                  <span className="text-[10px]">Data</span>
+                  <Database className="w-3.5 h-3.5" />
+                  <span className="text-[9px]">Data</span>
                 </button>
 
                 <button
                   onClick={() => setSidebarCollapsed(true)}
-                  className="p-2 text-mars-subtle hover:text-white"
+                  className="p-2 text-mars-subtle hover:text-white shrink-0"
                   title="Collapse Panel"
                   aria-label="Collapse Panel"
                 >
@@ -527,11 +658,45 @@ export function App() {
                 </>
               )}
 
+              {activeTab === 'confidence' && (
+                <ConfidencePanel
+                  startCoords={startCoords}
+                  targetCoords={targetCoords}
+                  scienceDwellMin={scienceDurationMin}
+                />
+              )}
+
+              {activeTab === 'returnability' && (
+                <ReturnabilityPanel
+                  startCoords={startCoords}
+                  targetCoords={targetCoords}
+                  onSelectReturnRoute={setReturnRoute}
+                />
+              )}
+
               {activeTab === 'science' && (
                 <ScienceTargetPanel
                   targets={scienceTargets}
                   selectedTargetId={selectedTargetId}
+                  startCoords={startCoords}
                   onSelectTarget={handleSelectScienceTarget}
+                />
+              )}
+
+              {activeTab === 'mobility' && (
+                <MobilityPanel
+                  routePlan={routePlan}
+                />
+              )}
+
+              {activeTab === 'habitat' && (
+                <HabitatPanel
+                  onSelectBase={(lon, lat, name) => {
+                    setStartCoords([lon, lat]);
+                    setStartName(name);
+                    handlePlanRoute();
+                  }}
+                  currentBaseName={startName}
                 />
               )}
 

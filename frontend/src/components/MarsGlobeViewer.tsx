@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { TerrainMesh3DResponse, RoutePlanResponse, ScienceTarget, EnvironmentalConditions } from '../types';
+import { TerrainMesh3DResponse, RoutePlanResponse, ScienceTarget, EnvironmentalConditions, HabitatCandidate } from '../types';
 import {
   Compass,
   RotateCcw,
@@ -22,6 +22,8 @@ import {
 export interface MarsGlobeViewerProps {
   meshData?: TerrainMesh3DResponse;
   routePlan?: RoutePlanResponse;
+  returnRoute?: RoutePlanResponse;
+  habitatCandidates?: HabitatCandidate[];
   startCoords: [number, number];
   targetCoords: [number, number];
   scienceTargets: ScienceTarget[];
@@ -75,6 +77,8 @@ export function cartesianToLatLon(v: THREE.Vector3): { lat: number; lon: number 
 export const MarsGlobeViewer: React.FC<MarsGlobeViewerProps> = ({
   meshData,
   routePlan,
+  returnRoute,
+  habitatCandidates,
   startCoords,
   targetCoords,
   scienceTargets,
@@ -543,11 +547,37 @@ export const MarsGlobeViewer: React.FC<MarsGlobeViewerProps> = ({
       surfaceMarkers.add(line);
     }
 
+    // 1B. Independent Return Corridor (Cyan)
+    if (returnRoute && returnRoute.coords_lonlat.length > 1) {
+      const returnPts: THREE.Vector3[] = [];
+      returnRoute.coords_lonlat.forEach(([lon, lat]) => {
+        const p = lonLatToTerrainWorld(lon, lat, meshData, vertExaggeration);
+        returnPts.push(new THREE.Vector3(p.x, p.y + 0.22, p.z));
+      });
+      const retGeom = new THREE.BufferGeometry().setFromPoints(returnPts);
+      const retMat = new THREE.LineBasicMaterial({
+        color: 0x06B6D4,
+        linewidth: 3
+      });
+      const retLine = new THREE.Line(retGeom, retMat);
+      surfaceMarkers.add(retLine);
+    }
+
     // 2. Start Base Pin (Green)
     const startP = lonLatToTerrainWorld(startCoords[0], startCoords[1], meshData, vertExaggeration);
     const startPin = createTerrainPinMesh(0x22C55E, 0.35);
     startPin.position.set(startP.x, startP.y, startP.z);
     surfaceMarkers.add(startPin);
+
+    // 2B. Habitat Candidates (3D Geodesic Domes)
+    if (habitatCandidates && habitatCandidates.length > 0) {
+      habitatCandidates.forEach((cand) => {
+        const p = lonLatToTerrainWorld(cand.lon, cand.lat, meshData, vertExaggeration);
+        const dome = createHabitatDomeMesh(0x38BDF8, 0.45);
+        dome.position.set(p.x, p.y, p.z);
+        surfaceMarkers.add(dome);
+      });
+    }
 
     // 3. Goal Target Pin (Red)
     const targetP = lonLatToTerrainWorld(targetCoords[0], targetCoords[1], meshData, vertExaggeration);
@@ -563,7 +593,7 @@ export const MarsGlobeViewer: React.FC<MarsGlobeViewerProps> = ({
       diamond.position.set(p.x, p.y + 0.35, p.z);
       surfaceMarkers.add(diamond);
     });
-  }, [meshData, routePlan, startCoords, targetCoords, scienceTargets, selectedTargetId, vertExaggeration]);
+  }, [meshData, routePlan, returnRoute, habitatCandidates, startCoords, targetCoords, scienceTargets, selectedTargetId, vertExaggeration]);
 
   useEffect(() => {
     updateSurfaceMarkers();
@@ -958,6 +988,37 @@ function createTerrainDiamondMesh(colorHex: number, size: number) {
     roughness: 0.25
   });
   return new THREE.Mesh(geom, mat);
+}
+
+function createHabitatDomeMesh(colorHex: number, radius: number) {
+  const group = new THREE.Group();
+  // Geodesic hemispherical dome
+  const domeGeom = new THREE.SphereGeometry(radius, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2);
+  const domeMat = new THREE.MeshStandardMaterial({
+    color: 0xFAFAFA,
+    roughness: 0.35,
+    metalness: 0.45,
+    wireframe: false
+  });
+  const dome = new THREE.Mesh(domeGeom, domeMat);
+  group.add(dome);
+
+  // Structural base ring
+  const ringGeom = new THREE.RingGeometry(radius * 0.95, radius * 1.35, 24);
+  ringGeom.rotateX(-Math.PI / 2);
+  const ringMat = new THREE.MeshBasicMaterial({ color: colorHex, side: THREE.DoubleSide });
+  const ring = new THREE.Mesh(ringGeom, ringMat);
+  ring.position.y = 0.02;
+  group.add(ring);
+
+  // Communications beacon mast
+  const mastGeom = new THREE.CylinderGeometry(0.02, 0.02, radius * 1.6);
+  const mastMat = new THREE.MeshBasicMaterial({ color: 0xFFFFFF });
+  const mast = new THREE.Mesh(mastGeom, mastMat);
+  mast.position.y = radius + (radius * 0.8);
+  group.add(mast);
+
+  return group;
 }
 
 export default MarsGlobeViewer;

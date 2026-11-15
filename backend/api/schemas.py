@@ -159,3 +159,185 @@ class ReportGenerateRequest(BaseModel):
     route_plan: RoutePlanResponse
     simulation: MissionSimulateResponse
     environment: Dict[str, Any]
+
+# --- Human Mobility Schemas ---
+class MobilityRequest(BaseModel):
+    distances_m: List[float]
+    slopes_deg: List[float]
+    astronaut_mass_kg: float = 80.0
+    suit_mass_kg: float = 120.0
+
+class RestScheduleSchema(BaseModel):
+    step_index: int
+    distance_along_route_m: float
+    elapsed_time_s: float
+    rest_duration_min: float
+    fatigue_before_pct: float
+    fatigue_after_pct: float
+    reason: str
+
+class MobilityResponse(BaseModel):
+    total_distance_m: float
+    total_walk_time_s: float
+    total_rest_time_s: float
+    total_elapsed_time_s: float
+    avg_speed_ms: float
+    avg_metabolic_power_w: float
+    peak_metabolic_power_w: float
+    total_energy_kcal: float
+    peak_fatigue_pct: float
+    fatigue_curve: List[float]
+    speed_profile: List[float]
+    power_profile: List[float]
+    rest_stops: List[RestScheduleSchema]
+
+# --- Returnability Schemas ---
+class ReturnabilityRequest(BaseModel):
+    start_lon: float
+    start_lat: float
+    goal_lon: float
+    goal_lat: float
+    o2_capacity_kg: float = 1.20
+    battery_capacity_wh: float = 1000.0
+    water_capacity_kg: float = 4.0
+
+class ReturnCheckpointSchema(BaseModel):
+    step_index: int
+    lon: float
+    lat: float
+    outbound_elapsed_s: float
+    return_distance_m: float
+    return_duration_s: float
+    o2_return_required_kg: float
+    battery_return_required_wh: float
+    water_return_required_kg: float
+    remaining_o2_margin_pct: float
+    status: str
+
+class ReturnabilityResponse(BaseModel):
+    overall_status: str
+    checkpoints: List[ReturnCheckpointSchema]
+    point_of_no_return_idx: int
+    point_of_no_return_lonlat: Optional[List[float]]
+    min_return_margin_pct: float
+    preferred_return_route: Optional[RoutePlanResponse]
+    limiting_resource: str
+    summary: str
+
+class EmergencyEventRequest(BaseModel):
+    current_lon: float
+    current_lat: float
+    habitat_lon: float
+    habitat_lat: float
+    speed_factor: float = 1.0
+    remaining_o2_kg: float = 0.8
+    remaining_battery_wh: float = 600.0
+    remaining_water_kg: float = 2.5
+
+class EmergencyEventResponse(BaseModel):
+    action_recommendation: str
+    urgency_level: str
+    reasoning: List[str]
+    emergency_return_route: Optional[RoutePlanResponse]
+    required_return_time_s: float
+    estimated_o2_used_kg: float
+    projected_final_o2_reserve_pct: float
+
+# --- Mission Confidence Schemas ---
+class ConfidenceRequest(BaseModel):
+    start_lon: float
+    start_lat: float
+    goal_lon: float
+    goal_lat: float
+    science_dwell_min: float = 45.0
+    has_real_insitu_env: bool = True
+
+class ConfidenceResponse(BaseModel):
+    overall_score: float
+    confidence_level: str
+    terrain_confidence: float
+    route_confidence: float
+    environment_confidence: float
+    resource_confidence: float
+    feasibility_confidence: float
+    uncertainty_drivers: List[str]
+    actionable_mitigations: List[str]
+
+class MonteCarloRequest(BaseModel):
+    start_lon: float
+    start_lat: float
+    goal_lon: float
+    goal_lat: float
+    num_simulations: int = 100
+    science_dwell_min: float = 45.0
+
+class MonteCarloResponse(BaseModel):
+    num_runs: int
+    success_rate_pct: float
+    duration_p10_h: float
+    duration_p50_h: float
+    duration_p90_h: float
+    o2_margin_p10_pct: float
+    o2_margin_p50_pct: float
+    duration_samples_h: List[float]
+    failure_breakdown: Dict[str, int]
+
+class SensitivityResponse(BaseModel):
+    parameter_elasticities: Dict[str, float]
+    primary_failure_mode: str
+    recommendation: str
+
+# --- Autonomous Science Discovery Schemas ---
+class DiscoveredTargetSchema(BaseModel):
+    target_id: str
+    name: str
+    lon: float
+    lat: float
+    geological_unit: str
+    mineralogy: str
+    relevance: float
+    data_quality: float
+    distance_m: float
+    scientific_value_density: float
+    recommended_instrument: str
+    evidence_summary: str
+
+class TourStopSchema(BaseModel):
+    stop_number: int
+    target_id: str
+    name: str
+    lon: float
+    lat: float
+    arrival_time_min: float
+    dwell_time_min: float
+    science_value: float
+
+class ScienceTourRequest(BaseModel):
+    start_lon: float
+    start_lat: float
+    time_budget_h: float = 4.0
+    dwell_per_stop_min: float = 30.0
+
+class ScienceTourResponse(BaseModel):
+    stops: List[TourStopSchema]
+    total_distance_km: float
+    total_duration_h: float
+    total_science_value: float
+    return_feasible: bool
+    itinerary_summary: str
+
+# --- Habitat Selection Schemas ---
+class HabitatCandidateSchema(BaseModel):
+    site_id: str
+    name: str
+    lon: float
+    lat: float
+    elevation_m: float
+    slope_deg: float
+    roughness_m: float
+    composite_suitability: float
+    classification: str
+    criteria_scores: Dict[str, float]
+    pros: List[str]
+    cons: List[str]
+    operational_capacity: str

@@ -8,7 +8,18 @@ import {
   RouteCompareResponse,
   MissionSimulateResponse,
   PointTerrainResponse,
-  TerrainMesh3DResponse
+  TerrainMesh3DResponse,
+  MobilityResponse,
+  ReturnabilityResponse,
+  EmergencyEventResponse,
+  ConfidenceResponse,
+  MonteCarloResponse,
+  SensitivityResponse,
+  DiscoveredTarget,
+  ScienceTourResponse,
+  HabitatCandidate,
+  NasaWeatherResponse,
+  NasaMediaItem
 } from '../types';
 
 const API_BASE = '/api/v1';
@@ -176,5 +187,188 @@ export async function generateReport(params: {
     })
   });
   if (!res.ok) throw new Error('Report generation failed');
+  return res.json();
+}
+
+// --- Advanced Intelligence Systems ---
+
+export async function estimateMobility(params: {
+  distancesM: number[];
+  slopesDeg: number[];
+  astronautMassKg?: number;
+  suitMassKg?: number;
+}): Promise<MobilityResponse> {
+  const res = await fetch(`${API_BASE}/mobility/estimate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      distances_m: params.distancesM,
+      slopes_deg: params.slopesDeg,
+      astronaut_mass_kg: params.astronautMassKg ?? 80.0,
+      suit_mass_kg: params.suitMassKg ?? 120.0
+    })
+  });
+  if (!res.ok) throw new Error('Mobility estimation failed');
+  return res.json();
+}
+
+export async function evaluateReturnability(params: {
+  startLon: number;
+  startLat: number;
+  goalLon: number;
+  goalLat: number;
+  o2CapacityKg?: number;
+  batteryCapacityWh?: number;
+  waterCapacityKg?: number;
+}): Promise<ReturnabilityResponse> {
+  const res = await fetch(`${API_BASE}/returnability/evaluate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      start_lon: params.startLon,
+      start_lat: params.startLat,
+      goal_lon: params.goalLon,
+      goal_lat: params.goalLat,
+      o2_capacity_kg: params.o2CapacityKg ?? 1.20,
+      battery_capacity_wh: params.batteryCapacityWh ?? 1000.0,
+      water_capacity_kg: params.waterCapacityKg ?? 4.0
+    })
+  });
+  if (!res.ok) throw new Error('Returnability evaluation failed');
+  return res.json();
+}
+
+export async function assessEmergencyEvent(params: {
+  currentLon: number;
+  currentLat: number;
+  habitatLon: number;
+  habitatLat: number;
+  speedFactor?: number;
+  remainingO2Kg?: number;
+}): Promise<EmergencyEventResponse> {
+  const res = await fetch(`${API_BASE}/returnability/emergency`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      current_lon: params.currentLon,
+      current_lat: params.currentLat,
+      habitat_lon: params.habitatLon,
+      habitat_lat: params.habitatLat,
+      speed_factor: params.speedFactor ?? 1.0,
+      remaining_o2_kg: params.remainingO2Kg ?? 0.8
+    })
+  });
+  if (!res.ok) throw new Error('Emergency assessment failed');
+  return res.json();
+}
+
+export async function evaluateConfidence(params: {
+  startLon: number;
+  startLat: number;
+  goalLon: number;
+  goalLat: number;
+  scienceDwellMin?: number;
+  hasRealInsituEnv?: boolean;
+}): Promise<ConfidenceResponse> {
+  const res = await fetch(`${API_BASE}/confidence/evaluate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      start_lon: params.startLon,
+      start_lat: params.startLat,
+      goal_lon: params.goalLon,
+      goal_lat: params.goalLat,
+      science_dwell_min: params.scienceDwellMin ?? 45.0,
+      has_real_insitu_env: params.hasRealInsituEnv ?? true
+    })
+  });
+  if (!res.ok) throw new Error('Confidence evaluation failed');
+  return res.json();
+}
+
+export async function runMonteCarlo(params: {
+  startLon: number;
+  startLat: number;
+  goalLon: number;
+  goalLat: number;
+  numSimulations?: number;
+  scienceDwellMin?: number;
+}): Promise<MonteCarloResponse> {
+  const res = await fetch(`${API_BASE}/confidence/monte-carlo`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      start_lon: params.startLon,
+      start_lat: params.startLat,
+      goal_lon: params.goalLon,
+      goal_lat: params.goalLat,
+      num_simulations: params.numSimulations ?? 100,
+      science_dwell_min: params.scienceDwellMin ?? 45.0
+    })
+  });
+  if (!res.ok) throw new Error('Monte Carlo simulation failed');
+  return res.json();
+}
+
+export async function fetchSensitivity(
+  startLon: number,
+  startLat: number,
+  goalLon: number,
+  goalLat: number
+): Promise<SensitivityResponse> {
+  const res = await fetch(
+    `${API_BASE}/confidence/sensitivity?start_lon=${startLon}&start_lat=${startLat}&goal_lon=${goalLon}&goal_lat=${goalLat}`
+  );
+  if (!res.ok) throw new Error('Failed to fetch sensitivity analysis');
+  return res.json();
+}
+
+export async function discoverScienceTargets(
+  currentLon: number,
+  currentLat: number,
+  radiusM: number = 12000.0
+): Promise<DiscoveredTarget[]> {
+  const res = await fetch(
+    `${API_BASE}/science/discover?current_lon=${currentLon}&current_lat=${currentLat}&radius_m=${radiusM}`
+  );
+  if (!res.ok) throw new Error('Failed to discover science targets');
+  return res.json();
+}
+
+export async function optimizeScienceTour(params: {
+  startLon: number;
+  startLat: number;
+  timeBudgetH?: number;
+  dwellPerStopMin?: number;
+}): Promise<ScienceTourResponse> {
+  const res = await fetch(`${API_BASE}/science/tour`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      start_lon: params.startLon,
+      start_lat: params.startLat,
+      time_budget_h: params.timeBudgetH ?? 4.0,
+      dwell_per_stop_min: params.dwellPerStopMin ?? 30.0
+    })
+  });
+  if (!res.ok) throw new Error('Science tour optimization failed');
+  return res.json();
+}
+
+export async function fetchHabitatCandidates(): Promise<HabitatCandidate[]> {
+  const res = await fetch(`${API_BASE}/habitat/candidates`);
+  if (!res.ok) throw new Error('Failed to fetch habitat candidates');
+  return res.json();
+}
+
+export async function fetchNasaWeather(): Promise<NasaWeatherResponse> {
+  const res = await fetch(`${API_BASE}/nasa/weather`);
+  if (!res.ok) throw new Error('Failed to fetch NASA InSight weather');
+  return res.json();
+}
+
+export async function searchNasaMedia(query: string = 'jezero crater', limit: number = 10): Promise<NasaMediaItem[]> {
+  const res = await fetch(`${API_BASE}/nasa/media?query=${encodeURIComponent(query)}&limit=${limit}`);
+  if (!res.ok) throw new Error('Failed to search NASA media');
   return res.json();
 }

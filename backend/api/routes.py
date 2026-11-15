@@ -21,7 +21,25 @@ from backend.api.schemas import (
     RouteCompareResponse,
     MissionSimulateRequest,
     MissionSimulateResponse,
-    ReportGenerateRequest
+    ReportGenerateRequest,
+    MobilityRequest,
+    MobilityResponse,
+    RestScheduleSchema,
+    ReturnabilityRequest,
+    ReturnabilityResponse,
+    ReturnCheckpointSchema,
+    EmergencyEventRequest,
+    EmergencyEventResponse,
+    ConfidenceRequest,
+    ConfidenceResponse,
+    MonteCarloRequest,
+    MonteCarloResponse,
+    SensitivityResponse,
+    DiscoveredTargetSchema,
+    ScienceTourRequest,
+    ScienceTourResponse,
+    TourStopSchema,
+    HabitatCandidateSchema
 )
 from backend.core.terrain import TerrainModel
 from backend.core.router import MartianAStarRouter, RouteResult
@@ -30,6 +48,11 @@ from backend.core.environment import EnvironmentalModel
 from backend.core.simulator import MissionSimulator, SpacesuitConfig, SimulationResult
 from backend.core.reporter import ExpeditionReporter
 from backend.core.nasa_client import NasaApiClient
+from backend.core.mobility import MobilityEstimator
+from backend.core.returnability import ReturnabilityEngine
+from backend.core.confidence import MissionConfidenceEngine
+from backend.core.discovery import ScienceDiscoveryEngine
+from backend.core.habitat import HabitatSelectionEngine
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -41,6 +64,35 @@ _router_40m: Optional[MartianAStarRouter] = None
 _science_catalog = ScienceCatalog()
 _environmental_model = EnvironmentalModel()
 _nasa_client = NasaApiClient()
+_returnability_engine: Optional[ReturnabilityEngine] = None
+_confidence_engine: Optional[MissionConfidenceEngine] = None
+_habitat_engine: Optional[HabitatSelectionEngine] = None
+_discovery_engine: Optional[ScienceDiscoveryEngine] = None
+_mobility_estimator = MobilityEstimator()
+
+def get_returnability_engine() -> ReturnabilityEngine:
+    global _returnability_engine
+    if _returnability_engine is None:
+        _returnability_engine = ReturnabilityEngine(get_terrain(), get_router(2))
+    return _returnability_engine
+
+def get_confidence_engine() -> MissionConfidenceEngine:
+    global _confidence_engine
+    if _confidence_engine is None:
+        _confidence_engine = MissionConfidenceEngine(get_terrain())
+    return _confidence_engine
+
+def get_discovery_engine() -> ScienceDiscoveryEngine:
+    global _discovery_engine
+    if _discovery_engine is None:
+        _discovery_engine = ScienceDiscoveryEngine(_science_catalog)
+    return _discovery_engine
+
+def get_habitat_engine() -> HabitatSelectionEngine:
+    global _habitat_engine
+    if _habitat_engine is None:
+        _habitat_engine = HabitatSelectionEngine(get_terrain(), _science_catalog)
+    return _habitat_engine
 
 def get_terrain() -> TerrainModel:
     global _terrain_model
@@ -541,3 +593,263 @@ def generate_report(req: ReportGenerateRequest):
         "briefing_data": briefing,
         "markdown_report": markdown_text
     }
+
+# -----------------------------------------------------------------------------
+# Advanced Intelligence Systems Route Handlers
+# -----------------------------------------------------------------------------
+
+@api_router.post("/mobility/estimate", response_model=MobilityResponse)
+def estimate_mobility(req: MobilityRequest):
+    """Estimate suited astronaut walking speed, metabolic power, fatigue curve, and rest schedule."""
+    estimator = MobilityEstimator(astronaut_mass_kg=req.astronaut_mass_kg, suit_mass_kg=req.suit_mass_kg)
+    profile = estimator.evaluate_traverse(distances_m=req.distances_m, slopes_deg=req.slopes_deg)
+    return MobilityResponse(
+        total_distance_m=profile.total_distance_m,
+        total_walk_time_s=profile.total_walk_time_s,
+        total_rest_time_s=profile.total_rest_time_s,
+        total_elapsed_time_s=profile.total_elapsed_time_s,
+        avg_speed_ms=profile.avg_speed_ms,
+        avg_metabolic_power_w=profile.avg_metabolic_power_w,
+        peak_metabolic_power_w=profile.peak_metabolic_power_w,
+        total_energy_kcal=profile.total_energy_kcal,
+        peak_fatigue_pct=profile.peak_fatigue_pct,
+        fatigue_curve=profile.fatigue_curve,
+        speed_profile=profile.speed_profile,
+        power_profile=profile.power_profile,
+        rest_stops=[
+            RestScheduleSchema(
+                step_index=r.step_index,
+                distance_along_route_m=r.distance_along_route_m,
+                elapsed_time_s=r.elapsed_time_s,
+                rest_duration_min=r.rest_duration_min,
+                fatigue_before_pct=r.fatigue_before_pct,
+                fatigue_after_pct=r.fatigue_after_pct,
+                reason=r.reason
+            ) for r in profile.rest_stops
+        ]
+    )
+
+@api_router.post("/returnability/evaluate", response_model=ReturnabilityResponse)
+def evaluate_returnability(req: ReturnabilityRequest):
+    """Evaluate returnability along route checkpoints and locate the Point of No Return."""
+    router = get_router(2)
+    outbound = router.plan_lonlat_route(
+        start_lon=req.start_lon,
+        start_lat=req.start_lat,
+        goal_lon=req.goal_lon,
+        goal_lat=req.goal_lat
+    )
+    if not outbound:
+        raise HTTPException(status_code=400, detail="Unable to plan valid outbound route")
+
+    engine = get_returnability_engine()
+    eval_res = engine.evaluate_route_returnability(
+        outbound_route=outbound,
+        habitat_lon=req.start_lon,
+        habitat_lat=req.start_lat,
+        o2_capacity_kg=req.o2_capacity_kg,
+        battery_capacity_wh=req.battery_capacity_wh,
+        water_capacity_kg=req.water_capacity_kg
+    )
+
+    preferred_return_resp = _build_route_response(eval_res.preferred_return_route) if eval_res.preferred_return_route else None
+
+    return ReturnabilityResponse(
+        overall_status=eval_res.overall_status.value,
+        checkpoints=[
+            ReturnCheckpointSchema(
+                step_index=c.step_index,
+                lon=c.lon,
+                lat=c.lat,
+                outbound_elapsed_s=c.outbound_elapsed_s,
+                return_distance_m=c.return_distance_m,
+                return_duration_s=c.return_duration_s,
+                o2_return_required_kg=c.o2_return_required_kg,
+                battery_return_required_wh=c.battery_return_required_wh,
+                water_return_required_kg=c.water_return_required_kg,
+                remaining_o2_margin_pct=c.remaining_o2_margin_pct,
+                status=c.status.value
+            ) for c in eval_res.checkpoints
+        ],
+        point_of_no_return_idx=eval_res.point_of_no_return_idx,
+        point_of_no_return_lonlat=list(eval_res.point_of_no_return_lonlat) if eval_res.point_of_no_return_lonlat else None,
+        min_return_margin_pct=eval_res.min_return_margin_pct,
+        preferred_return_route=preferred_return_resp,
+        limiting_resource=eval_res.limiting_resource,
+        summary=eval_res.summary
+    )
+
+@api_router.post("/returnability/emergency", response_model=EmergencyEventResponse)
+def assess_emergency(req: EmergencyEventRequest):
+    """Simulate off-nominal emergency event (mobility deficit, leak) and compute escape response."""
+    engine = get_returnability_engine()
+    assessment = engine.assess_emergency_event(
+        current_lon=req.current_lon,
+        current_lat=req.current_lat,
+        habitat_lon=req.habitat_lon,
+        habitat_lat=req.habitat_lat,
+        speed_factor=req.speed_factor,
+        remaining_o2_kg=req.remaining_o2_kg,
+        remaining_battery_wh=req.remaining_battery_wh,
+        remaining_water_kg=req.remaining_water_kg
+    )
+    return_route = _build_route_response(assessment.emergency_return_route) if assessment.emergency_return_route else None
+    return EmergencyEventResponse(
+        action_recommendation=assessment.action_recommendation,
+        urgency_level=assessment.urgency_level,
+        reasoning=assessment.reasoning,
+        emergency_return_route=return_route,
+        required_return_time_s=assessment.required_return_time_s,
+        estimated_o2_used_kg=assessment.estimated_o2_used_kg,
+        projected_final_o2_reserve_pct=assessment.projected_final_o2_reserve_pct
+    )
+
+@api_router.post("/confidence/evaluate", response_model=ConfidenceResponse)
+def evaluate_mission_confidence(req: ConfidenceRequest):
+    """Evaluate multi-dimensional mission reliability across terrain, route, environment, and life support."""
+    router = get_router(2)
+    route = router.plan_lonlat_route(
+        start_lon=req.start_lon,
+        start_lat=req.start_lat,
+        goal_lon=req.goal_lon,
+        goal_lat=req.goal_lat
+    )
+    if not route:
+        raise HTTPException(status_code=400, detail="Cannot plan route for confidence evaluation")
+
+    sim = MissionSimulator().simulate(
+        distance_m=route.total_distance_m,
+        walking_time_s=route.estimated_duration_s,
+        science_duration_min=req.science_dwell_min
+    )
+    engine = get_confidence_engine()
+    res = engine.evaluate_confidence(route=route, simulation=sim, has_real_insitu_env=req.has_real_insitu_env)
+    return ConfidenceResponse(
+        overall_score=res.overall_score,
+        confidence_level=res.confidence_level,
+        terrain_confidence=res.terrain_confidence,
+        route_confidence=res.route_confidence,
+        environment_confidence=res.environment_confidence,
+        resource_confidence=res.resource_confidence,
+        feasibility_confidence=res.feasibility_confidence,
+        uncertainty_drivers=res.uncertainty_drivers,
+        actionable_mitigations=res.actionable_mitigations
+    )
+
+@api_router.post("/confidence/monte-carlo", response_model=MonteCarloResponse)
+def run_monte_carlo_scenarios(req: MonteCarloRequest):
+    """Run stochastic Monte Carlo simulations to assess mission success rate and duration distributions."""
+    router = get_router(2)
+    route = router.plan_lonlat_route(
+        start_lon=req.start_lon,
+        start_lat=req.start_lat,
+        goal_lon=req.goal_lon,
+        goal_lat=req.goal_lat
+    )
+    if not route:
+        raise HTTPException(status_code=400, detail="Cannot plan route for Monte Carlo analysis")
+
+    engine = get_confidence_engine()
+    mc = engine.run_monte_carlo(route=route, num_simulations=req.num_simulations, science_dwell_min=req.science_dwell_min)
+    return MonteCarloResponse(
+        num_runs=mc.num_runs,
+        success_rate_pct=mc.success_rate_pct,
+        duration_p10_h=mc.duration_p10_h,
+        duration_p50_h=mc.duration_p50_h,
+        duration_p90_h=mc.duration_p90_h,
+        o2_margin_p10_pct=mc.o2_margin_p10_pct,
+        o2_margin_p50_pct=mc.o2_margin_p50_pct,
+        duration_samples_h=mc.duration_samples_h,
+        failure_breakdown=mc.failure_breakdown
+    )
+
+@api_router.get("/confidence/sensitivity", response_model=SensitivityResponse)
+def get_sensitivity_analysis(start_lon: float, start_lat: float, goal_lon: float, goal_lat: float):
+    """Analyze elasticity of mission duration and safety margins to walking speed, slope, and O2 usage."""
+    router = get_router(2)
+    route = router.plan_lonlat_route(start_lon=start_lon, start_lat=start_lat, goal_lon=goal_lon, goal_lat=goal_lat)
+    if not route:
+        raise HTTPException(status_code=400, detail="Cannot plan route for sensitivity analysis")
+
+    engine = get_confidence_engine()
+    sens = engine.analyze_sensitivity(route=route)
+    return SensitivityResponse(
+        parameter_elasticities=sens.parameter_elasticities,
+        primary_failure_mode=sens.primary_failure_mode,
+        recommendation=sens.recommendation
+    )
+
+@api_router.get("/science/discover", response_model=List[DiscoveredTargetSchema])
+def discover_science_targets(current_lon: float, current_lat: float, radius_m: float = 12000.0, min_relevance: float = 6.0):
+    """Autonomously discover scientific targets ranked by Scientific Value Density (SVD)."""
+    engine = get_discovery_engine()
+    targets = engine.discover_targets(current_lon=current_lon, current_lat=current_lat, max_search_radius_m=radius_m, min_relevance=min_relevance)
+    return [
+        DiscoveredTargetSchema(
+            target_id=t.target_id,
+            name=t.name,
+            lon=t.lon,
+            lat=t.lat,
+            geological_unit=t.geological_unit,
+            mineralogy=t.mineralogy,
+            relevance=t.relevance,
+            data_quality=t.data_quality,
+            distance_m=t.distance_m,
+            scientific_value_density=t.scientific_value_density,
+            recommended_instrument=t.recommended_instrument,
+            evidence_summary=t.evidence_summary
+        ) for t in targets
+    ]
+
+@api_router.post("/science/tour", response_model=ScienceTourResponse)
+def optimize_science_tour(req: ScienceTourRequest):
+    """Synthesize multi-stop exploration itinerary maximizing scientific value within time budget."""
+    engine = get_discovery_engine()
+    tour = engine.optimize_science_tour(
+        start_lon=req.start_lon,
+        start_lat=req.start_lat,
+        time_budget_h=req.time_budget_h,
+        dwell_per_stop_min=req.dwell_per_stop_min
+    )
+    return ScienceTourResponse(
+        stops=[
+            TourStopSchema(
+                stop_number=s.stop_number,
+                target_id=s.target_id,
+                name=s.name,
+                lon=s.lon,
+                lat=s.lat,
+                arrival_time_min=s.arrival_time_min,
+                dwell_time_min=s.dwell_time_min,
+                science_value=s.science_value
+            ) for s in tour.stops
+        ],
+        total_distance_km=tour.total_distance_km,
+        total_duration_h=tour.total_duration_h,
+        total_science_value=tour.total_science_value,
+        return_feasible=tour.return_feasible,
+        itinerary_summary=tour.itinerary_summary
+    )
+
+@api_router.get("/habitat/candidates", response_model=List[HabitatCandidateSchema])
+def get_habitat_candidates():
+    """Retrieve evaluated candidate exploration bases across Jezero Crater ranked by MCDA suitability."""
+    engine = get_habitat_engine()
+    cands = engine.evaluate_candidates()
+    return [
+        HabitatCandidateSchema(
+            site_id=c.site_id,
+            name=c.name,
+            lon=c.lon,
+            lat=c.lat,
+            elevation_m=c.elevation_m,
+            slope_deg=c.slope_deg,
+            roughness_m=c.roughness_m,
+            composite_suitability=c.composite_suitability,
+            classification=c.classification,
+            criteria_scores=c.criteria_scores,
+            pros=c.pros,
+            cons=c.cons,
+            operational_capacity=c.operational_capacity
+        ) for c in cands
+    ]
