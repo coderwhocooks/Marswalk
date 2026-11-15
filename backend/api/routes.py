@@ -29,6 +29,7 @@ from backend.core.science import ScienceCatalog
 from backend.core.environment import EnvironmentalModel
 from backend.core.simulator import MissionSimulator, SpacesuitConfig, SimulationResult
 from backend.core.reporter import ExpeditionReporter
+from backend.core.nasa_client import NasaApiClient
 
 api_router = APIRouter(prefix="/api/v1")
 
@@ -39,6 +40,7 @@ _router_20m: Optional[MartianAStarRouter] = None
 _router_40m: Optional[MartianAStarRouter] = None
 _science_catalog = ScienceCatalog()
 _environmental_model = EnvironmentalModel()
+_nasa_client = NasaApiClient()
 
 def get_terrain() -> TerrainModel:
     global _terrain_model
@@ -327,6 +329,21 @@ def get_science_targets(
 def get_environment(lmst_hour: float = 12.0, duration_hours: float = 4.0):
     """Query Perseverance MEDA surface observations and radiation exposure."""
     return _environmental_model.get_conditions(lmst_hour=lmst_hour, mission_duration_hours=duration_hours)
+
+@api_router.get("/nasa/weather")
+def get_nasa_weather():
+    """Retrieve authentic Martian atmospheric telemetry from NASA InSight Weather API."""
+    return _nasa_client.get_insight_weather()
+
+@api_router.get("/nasa/media")
+def get_nasa_media(query: str = Query("jezero crater", min_length=1), limit: int = Query(10, ge=1, le=50)):
+    """Search NASA Image & Video Library for Jezero Crater observations and mission records."""
+    return _nasa_client.search_mission_media(query=query, limit=limit)
+
+@api_router.get("/nasa/ephemeris")
+def get_nasa_ephemeris():
+    """Get real-time Mars orbital ephemeris and solar geometry from NASA JPL Horizons."""
+    return _nasa_client.get_mars_ephemeris()
 
 def _build_route_response(route: RouteResult) -> RoutePlanResponse:
     elev_gain = 0.0

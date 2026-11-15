@@ -161,3 +161,23 @@ def test_report_generate_endpoint():
     assert "briefing_data" in rep
     assert "markdown_report" in rep
     assert "# MARSWALK EXPEDITION BRIEFING" in rep["markdown_report"]
+
+def test_nasa_api_endpoints():
+    weather_resp = client.get("/api/v1/nasa/weather")
+    assert weather_resp.status_code == 200
+    w = weather_resp.json()
+    assert "latest_sol" in w
+    assert "air_temp" in w
+    assert "pressure" in w
+
+    media_resp = client.get("/api/v1/nasa/media?query=jezero&limit=3")
+    assert media_resp.status_code == 200
+    media = media_resp.json()
+    assert isinstance(media, list)
+    assert len(media) > 0
+    assert "nasa_id" in media[0]
+
+    eph_resp = client.get("/api/v1/nasa/ephemeris")
+    assert eph_resp.status_code == 200
+    eph = eph_resp.json()
+    assert "mars_sun_distance_au" in eph
