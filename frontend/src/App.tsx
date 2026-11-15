@@ -319,85 +319,181 @@ export function App() {
             sidebarCollapsed ? 'w-14' : 'w-96'
           }`}
         >
-          {/* Tab Selector Bar */}
-          <div className="flex items-center border-b border-mars-border bg-mars-dark/40 overflow-x-auto text-xs shrink-0">
-            <button
-              onClick={() => setActiveTab('planner')}
-              className={`p-2.5 flex-1 flex flex-col items-center justify-center gap-1 transition ${
-                activeTab === 'planner'
-                  ? 'border-b-2 border-mars-red text-white font-semibold bg-mars-panel/60'
-                  : 'text-mars-subtle hover:text-white'
-              }`}
-              title="Traverse Planner"
-            >
-              <Compass className="w-4 h-4" />
-              {!sidebarCollapsed && <span className="text-[10px]">Planner</span>}
-            </button>
+          {sidebarCollapsed ? (
+            /* Collapsed Vertical Icon Bar */
+            <div className="flex flex-col items-center py-2.5 h-full gap-2 shrink-0">
+              <button
+                onClick={() => setSidebarCollapsed(false)}
+                className="p-2.5 text-mars-subtle hover:text-white hover:bg-mars-dark/60 rounded-lg transition"
+                title="Expand Panel"
+                aria-label="Expand Panel"
+              >
+                <ChevronRight className="w-4 h-4 text-mars-accent" />
+              </button>
 
-            <button
-              onClick={() => setActiveTab('science')}
-              className={`p-2.5 flex-1 flex flex-col items-center justify-center gap-1 transition ${
-                activeTab === 'science'
-                  ? 'border-b-2 border-purple-500 text-purple-300 font-semibold bg-mars-panel/60'
-                  : 'text-mars-subtle hover:text-white'
-              }`}
-              title="Science Targets"
-            >
-              <Sparkles className="w-4 h-4" />
-              {!sidebarCollapsed && <span className="text-[10px]">Science</span>}
-            </button>
+              <div className="w-8 border-b border-mars-border/60 my-1" />
 
-            <button
-              onClick={() => setActiveTab('environment')}
-              className={`p-2.5 flex-1 flex flex-col items-center justify-center gap-1 transition ${
-                activeTab === 'environment'
-                  ? 'border-b-2 border-emerald-500 text-emerald-300 font-semibold bg-mars-panel/60'
-                  : 'text-mars-subtle hover:text-white'
-              }`}
-              title="MEDA Environment"
-            >
-              <Activity className="w-4 h-4" />
-              {!sidebarCollapsed && <span className="text-[10px]">MEDA</span>}
-            </button>
+              <button
+                onClick={() => {
+                  setActiveTab('planner');
+                  setSidebarCollapsed(false);
+                }}
+                className={`p-2.5 rounded-lg transition ${
+                  activeTab === 'planner'
+                    ? 'text-white bg-mars-red/30 border border-mars-red'
+                    : 'text-mars-subtle hover:text-white hover:bg-mars-dark/60'
+                }`}
+                title="Traverse Planner"
+                aria-label="Traverse Planner"
+              >
+                <Compass className="w-4 h-4" />
+              </button>
 
-            <button
-              onClick={() => setActiveTab('simulation')}
-              className={`p-2.5 flex-1 flex flex-col items-center justify-center gap-1 transition ${
-                activeTab === 'simulation'
-                  ? 'border-b-2 border-mars-accent text-sky-300 font-semibold bg-mars-panel/60'
-                  : 'text-mars-subtle hover:text-white'
-              }`}
-              title="Life Support"
-            >
-              <Clock className="w-4 h-4" />
-              {!sidebarCollapsed && <span className="text-[10px]">Support</span>}
-            </button>
+              <button
+                onClick={() => {
+                  setActiveTab('science');
+                  setSidebarCollapsed(false);
+                }}
+                className={`p-2.5 rounded-lg transition ${
+                  activeTab === 'science'
+                    ? 'text-purple-300 bg-purple-500/30 border border-purple-500'
+                    : 'text-mars-subtle hover:text-white hover:bg-mars-dark/60'
+                }`}
+                title="Science Targets"
+                aria-label="Science Targets"
+              >
+                <Sparkles className="w-4 h-4" />
+              </button>
 
-            <button
-              onClick={() => setActiveTab('datasets')}
-              className={`p-2.5 flex-1 flex flex-col items-center justify-center gap-1 transition ${
-                activeTab === 'datasets'
-                  ? 'border-b-2 border-slate-400 text-white font-semibold bg-mars-panel/60'
-                  : 'text-mars-subtle hover:text-white'
-              }`}
-              title="Datasets"
-            >
-              <Database className="w-4 h-4" />
-              {!sidebarCollapsed && <span className="text-[10px]">Data</span>}
-            </button>
+              <button
+                onClick={() => {
+                  setActiveTab('environment');
+                  setSidebarCollapsed(false);
+                }}
+                className={`p-2.5 rounded-lg transition ${
+                  activeTab === 'environment'
+                    ? 'text-emerald-300 bg-emerald-500/30 border border-emerald-500'
+                    : 'text-mars-subtle hover:text-white hover:bg-mars-dark/60'
+                }`}
+                title="MEDA Environment"
+                aria-label="MEDA Environment"
+              >
+                <Activity className="w-4 h-4" />
+              </button>
 
-            <button
-              onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-              className="p-2 text-mars-subtle hover:text-white"
-              title={sidebarCollapsed ? 'Expand Panel' : 'Collapse Panel'}
-            >
-              {sidebarCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
-            </button>
-          </div>
+              <button
+                onClick={() => {
+                  setActiveTab('simulation');
+                  setSidebarCollapsed(false);
+                }}
+                className={`p-2.5 rounded-lg transition ${
+                  activeTab === 'simulation'
+                    ? 'text-sky-300 bg-sky-500/30 border border-sky-500'
+                    : 'text-mars-subtle hover:text-white hover:bg-mars-dark/60'
+                }`}
+                title="Life Support"
+                aria-label="Life Support"
+              >
+                <Clock className="w-4 h-4" />
+              </button>
 
-          {/* Tab Body */}
-          {!sidebarCollapsed && (
-            <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
+              <button
+                onClick={() => {
+                  setActiveTab('datasets');
+                  setSidebarCollapsed(false);
+                }}
+                className={`p-2.5 rounded-lg transition ${
+                  activeTab === 'datasets'
+                    ? 'text-white bg-slate-500/30 border border-slate-400'
+                    : 'text-mars-subtle hover:text-white hover:bg-mars-dark/60'
+                }`}
+                title="Datasets"
+                aria-label="Datasets"
+              >
+                <Database className="w-4 h-4" />
+              </button>
+            </div>
+          ) : (
+            <>
+              {/* Tab Selector Bar */}
+              <div className="flex items-center border-b border-mars-border bg-mars-dark/40 overflow-x-auto text-xs shrink-0">
+                <button
+                  onClick={() => setActiveTab('planner')}
+                  className={`p-2.5 flex-1 flex flex-col items-center justify-center gap-1 transition ${
+                    activeTab === 'planner'
+                      ? 'border-b-2 border-mars-red text-white font-semibold bg-mars-panel/60'
+                      : 'text-mars-subtle hover:text-white'
+                  }`}
+                  title="Traverse Planner"
+                >
+                  <Compass className="w-4 h-4" />
+                  <span className="text-[10px]">Planner</span>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('science')}
+                  className={`p-2.5 flex-1 flex flex-col items-center justify-center gap-1 transition ${
+                    activeTab === 'science'
+                      ? 'border-b-2 border-purple-500 text-purple-300 font-semibold bg-mars-panel/60'
+                      : 'text-mars-subtle hover:text-white'
+                  }`}
+                  title="Science Targets"
+                >
+                  <Sparkles className="w-4 h-4" />
+                  <span className="text-[10px]">Science</span>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('environment')}
+                  className={`p-2.5 flex-1 flex flex-col items-center justify-center gap-1 transition ${
+                    activeTab === 'environment'
+                      ? 'border-b-2 border-emerald-500 text-emerald-300 font-semibold bg-mars-panel/60'
+                      : 'text-mars-subtle hover:text-white'
+                  }`}
+                  title="MEDA Environment"
+                >
+                  <Activity className="w-4 h-4" />
+                  <span className="text-[10px]">MEDA</span>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('simulation')}
+                  className={`p-2.5 flex-1 flex flex-col items-center justify-center gap-1 transition ${
+                    activeTab === 'simulation'
+                      ? 'border-b-2 border-mars-accent text-sky-300 font-semibold bg-mars-panel/60'
+                      : 'text-mars-subtle hover:text-white'
+                  }`}
+                  title="Life Support"
+                >
+                  <Clock className="w-4 h-4" />
+                  <span className="text-[10px]">Support</span>
+                </button>
+
+                <button
+                  onClick={() => setActiveTab('datasets')}
+                  className={`p-2.5 flex-1 flex flex-col items-center justify-center gap-1 transition ${
+                    activeTab === 'datasets'
+                      ? 'border-b-2 border-slate-400 text-white font-semibold bg-mars-panel/60'
+                      : 'text-mars-subtle hover:text-white'
+                  }`}
+                  title="Datasets"
+                >
+                  <Database className="w-4 h-4" />
+                  <span className="text-[10px]">Data</span>
+                </button>
+
+                <button
+                  onClick={() => setSidebarCollapsed(true)}
+                  className="p-2 text-mars-subtle hover:text-white"
+                  title="Collapse Panel"
+                  aria-label="Collapse Panel"
+                >
+                  <ChevronLeft className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Tab Body */}
+              <div className="flex-1 overflow-y-auto p-3 flex flex-col gap-3">
               {activeTab === 'planner' && (
                 <>
                   <MissionPlanner
@@ -499,7 +595,8 @@ export function App() {
                   ))}
                 </div>
               )}
-            </div>
+              </div>
+            </>
           )}
         </aside>
 
