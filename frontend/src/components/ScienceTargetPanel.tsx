@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ScienceTarget, DiscoveredTarget, ScienceTourResponse } from '../types';
 import { Sparkles, MapPin, Search, ChevronRight, Award, Compass, Zap, Image, RefreshCw } from 'lucide-react';
 import { discoverScienceTargets, optimizeScienceTour, searchNasaMedia } from '../services/api';
+import { LocationHoverWrapper } from './LocationDetailTooltip';
 
 interface ScienceTargetPanelProps {
   targets: ScienceTarget[];
@@ -154,49 +155,70 @@ export const ScienceTargetPanel: React.FC<ScienceTargetPanelProps> = ({
             {filtered.map((target) => {
               const isSelected = target.target_id === selectedTargetId;
               return (
-                <div
+                <LocationHoverWrapper
                   key={target.target_id}
-                  onClick={() => onSelectTarget(target)}
-                  className={`p-3 rounded-lg border text-left cursor-pointer transition flex flex-col gap-1.5 ${
-                    isSelected
-                      ? 'bg-purple-500/15 border-purple-500 text-white shadow-md'
-                      : 'bg-mars-dark/40 border-mars-border/80 text-slate-300 hover:border-mars-subtle hover:bg-mars-dark/70'
-                  }`}
+                  info={{
+                    name: target.name,
+                    category: 'Science Target',
+                    lon: target.lon,
+                    lat: target.lat,
+                    score: target.composite_score || target.scientific_relevance * 10,
+                    scoreLabel: 'Science Relevance',
+                    geologicalUnit: target.geological_unit,
+                    mineralogy: target.mineralogy,
+                    badge: target.target_id,
+                    description: target.description || target.investigation_objective,
+                    keyFacts: [
+                      { label: 'Unit Symbol', value: target.unit_symbol },
+                      { label: 'Supporting Instrument', value: target.supporting_instrument }
+                    ],
+                    actionHint: 'Click to select target and calculate optimal traverse'
+                  }}
+                  className="w-full"
                 >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="text-[10px] text-purple-400 font-mono font-semibold uppercase flex items-center gap-1">
-                        <span>{target.target_id}</span>
-                        <span>•</span>
-                        <span>{target.unit_symbol}</span>
+                  <div
+                    onClick={() => onSelectTarget(target)}
+                    className={`p-3 rounded-lg border text-left cursor-pointer transition flex flex-col gap-1.5 w-full ${
+                      isSelected
+                        ? 'bg-purple-500/15 border-purple-500 text-white shadow-md'
+                        : 'bg-mars-dark/40 border-mars-border/80 text-slate-300 hover:border-mars-subtle hover:bg-mars-dark/70'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <div className="text-[10px] text-purple-400 font-mono font-semibold uppercase flex items-center gap-1">
+                          <span>{target.target_id}</span>
+                          <span>•</span>
+                          <span>{target.unit_symbol}</span>
+                        </div>
+                        <h4 className="text-xs font-bold text-white">{target.name}</h4>
                       </div>
-                      <h4 className="text-xs font-bold text-white">{target.name}</h4>
+                      <div className="flex items-center gap-1 text-[11px] bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded font-mono font-bold">
+                        <Award className="w-3 h-3 text-purple-400" />
+                        {target.scientific_relevance.toFixed(1)}
+                      </div>
                     </div>
-                    <div className="flex items-center gap-1 text-[11px] bg-purple-500/20 text-purple-300 px-1.5 py-0.5 rounded font-mono font-bold">
-                      <Award className="w-3 h-3 text-purple-400" />
-                      {target.scientific_relevance.toFixed(1)}
+
+                    <div className="text-[11px] text-mars-subtle">
+                      <strong className="text-slate-300">Unit:</strong> {target.geological_unit}
+                    </div>
+
+                    <div className="text-[11px] text-mars-subtle truncate">
+                      <strong className="text-slate-300">Minerals:</strong> {target.mineralogy}
+                    </div>
+
+                    <div className="text-[10px] text-slate-400 bg-mars-panel/60 p-1.5 rounded border border-mars-border/40 mt-0.5 line-clamp-2">
+                      🎯 {target.investigation_objective}
+                    </div>
+
+                    <div className="flex items-center justify-between text-[10px] text-mars-subtle pt-1 border-t border-mars-border/40 mt-1">
+                      <span>{target.supporting_instrument}</span>
+                      <span className="text-purple-300 font-medium flex items-center gap-0.5">
+                        Plan Route <ChevronRight className="w-3 h-3" />
+                      </span>
                     </div>
                   </div>
-
-                  <div className="text-[11px] text-mars-subtle">
-                    <strong className="text-slate-300">Unit:</strong> {target.geological_unit}
-                  </div>
-
-                  <div className="text-[11px] text-mars-subtle truncate">
-                    <strong className="text-slate-300">Minerals:</strong> {target.mineralogy}
-                  </div>
-
-                  <div className="text-[10px] text-slate-400 bg-mars-panel/60 p-1.5 rounded border border-mars-border/40 mt-0.5 line-clamp-2">
-                    🎯 {target.investigation_objective}
-                  </div>
-
-                  <div className="flex items-center justify-between text-[10px] text-mars-subtle pt-1 border-t border-mars-border/40 mt-1">
-                    <span>{target.supporting_instrument}</span>
-                    <span className="text-purple-300 font-medium flex items-center gap-0.5">
-                      Plan Route <ChevronRight className="w-3 h-3" />
-                    </span>
-                  </div>
-                </div>
+                </LocationHoverWrapper>
               );
             })}
           </div>
@@ -216,27 +238,48 @@ export const ScienceTargetPanel: React.FC<ScienceTargetPanelProps> = ({
                 Autonomously ranked by Scientific Value Density (SVD = Value / Distance Impedance).
               </div>
               {discovered.map((t) => (
-                <div
+                <LocationHoverWrapper
                   key={t.target_id}
-                  onClick={() => {
-                    const matched = targets.find((orig) => orig.target_id === t.target_id);
-                    if (matched) onSelectTarget(matched);
+                  info={{
+                    name: t.name,
+                    category: 'Science Target',
+                    lon: t.lon,
+                    lat: t.lat,
+                    score: t.scientific_value_density,
+                    scoreLabel: 'Scientific Value Density',
+                    geologicalUnit: t.geological_unit,
+                    mineralogy: t.mineralogy,
+                    badge: t.target_id,
+                    description: t.evidence_summary,
+                    keyFacts: [
+                      { label: 'Distance from Base', value: `${t.distance_m} m` },
+                      { label: 'Recommended Instrument', value: t.recommended_instrument }
+                    ],
+                    actionHint: 'Click to select discovered target'
                   }}
-                  className="bg-mars-dark/50 border border-mars-border p-2.5 rounded-lg flex flex-col gap-1 cursor-pointer hover:border-purple-400 transition"
+                  className="w-full"
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-white text-xs">{t.name}</span>
-                    <span className="font-mono text-purple-300 bg-purple-500/20 px-1.5 py-0.5 rounded text-[10px] font-bold">
-                      SVD: {t.scientific_value_density}
-                    </span>
+                  <div
+                    onClick={() => {
+                      const matched = targets.find((orig) => orig.target_id === t.target_id);
+                      if (matched) onSelectTarget(matched);
+                    }}
+                    className="bg-mars-dark/50 border border-mars-border p-2.5 rounded-lg flex flex-col gap-1 cursor-pointer hover:border-purple-400 transition w-full text-left"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-white text-xs">{t.name}</span>
+                      <span className="font-mono text-purple-300 bg-purple-500/20 px-1.5 py-0.5 rounded text-[10px] font-bold">
+                        SVD: {t.scientific_value_density}
+                      </span>
+                    </div>
+                    <div className="text-[10px] text-mars-subtle">
+                      {t.geological_unit} • {t.distance_m}m from base
+                    </div>
+                    <div className="text-[10px] text-slate-300 bg-mars-panel/40 p-1.5 rounded">
+                      {t.evidence_summary}
+                    </div>
                   </div>
-                  <div className="text-[10px] text-mars-subtle">
-                    {t.geological_unit} • {t.distance_m}m from base
-                  </div>
-                  <div className="text-[10px] text-slate-300 bg-mars-panel/40 p-1.5 rounded">
-                    {t.evidence_summary}
-                  </div>
-                </div>
+                </LocationHoverWrapper>
               ))}
 
               {/* NASA Media Preview */}

@@ -1,6 +1,7 @@
 import React from 'react';
 import { ScienceTarget } from '../types';
 import { Compass, Shield, Zap, Sliders, MapPin, Navigation } from 'lucide-react';
+import { LocationHoverWrapper } from './LocationDetailTooltip';
 
 interface MissionPlannerProps {
   startCoords: [number, number];
@@ -52,64 +53,113 @@ export const MissionPlanner: React.FC<MissionPlannerProps> = ({
       {/* Waypoint Selectors */}
       <div className="flex flex-col gap-2.5">
         {/* Staging Point */}
-        <div className="flex items-center justify-between bg-mars-dark/60 border border-mars-border p-2.5 rounded-lg text-xs">
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
-            <div>
-              <div className="text-[10px] uppercase text-mars-subtle font-semibold">Staging Site</div>
-              <div className="text-white font-medium truncate max-w-[170px]">{startName}</div>
-              <div className="text-[10px] text-mars-subtle font-mono">{startCoords[1].toFixed(4)}°N, {startCoords[0].toFixed(4)}°E</div>
+        <LocationHoverWrapper
+          info={{
+            name: startName,
+            category: 'EVA Staging Base',
+            lon: startCoords[0],
+            lat: startCoords[1],
+            elevation_m: -2567.2,
+            badge: 'STAGING BASE',
+            description: 'Designated staging base and primary EVA egress origin in Jezero Crater. Astronauts deploy and return to this facility.',
+            actionHint: 'Click Pick to choose a different staging site on the 3D map'
+          }}
+          className="w-full"
+        >
+          <div className="flex items-center justify-between bg-mars-dark/60 border border-mars-border p-2.5 rounded-lg text-xs hover:border-mars-subtle transition">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
+              <div>
+                <div className="text-[10px] uppercase text-mars-subtle font-semibold">Staging Site</div>
+                <div className="text-white font-medium truncate max-w-[170px]">{startName}</div>
+                <div className="text-[10px] text-mars-subtle font-mono">{startCoords[1].toFixed(4)}°N, {startCoords[0].toFixed(4)}°E</div>
+              </div>
             </div>
+            <button
+              onClick={() => onSetClickMode('start')}
+              className={`px-2.5 py-1 rounded text-[11px] font-medium transition ${
+                clickMode === 'start'
+                  ? 'bg-emerald-500 text-black font-semibold'
+                  : 'bg-mars-border hover:bg-mars-border/80 text-white'
+              }`}
+            >
+              <MapPin className="w-3 h-3 inline mr-1" />
+              {clickMode === 'start' ? 'Click Map...' : 'Pick'}
+            </button>
           </div>
-          <button
-            onClick={() => onSetClickMode('start')}
-            className={`px-2.5 py-1 rounded text-[11px] font-medium transition ${
-              clickMode === 'start'
-                ? 'bg-emerald-500 text-black font-semibold'
-                : 'bg-mars-border hover:bg-mars-border/80 text-white'
-            }`}
-          >
-            <MapPin className="w-3 h-3 inline mr-1" />
-            {clickMode === 'start' ? 'Click Map...' : 'Pick'}
-          </button>
-        </div>
+        </LocationHoverWrapper>
 
         {/* Destination Target */}
-        <div className="flex items-center justify-between bg-mars-dark/60 border border-mars-border p-2.5 rounded-lg text-xs">
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
-            <div>
-              <div className="text-[10px] uppercase text-mars-subtle font-semibold">Exploration Target</div>
-              <div className="text-white font-medium truncate max-w-[170px]">{targetName}</div>
-              <div className="text-[10px] text-mars-subtle font-mono">{targetCoords[1].toFixed(4)}°N, {targetCoords[0].toFixed(4)}°E</div>
+        <LocationHoverWrapper
+          info={{
+            name: targetName,
+            category: 'Exploration Waypoint',
+            lon: targetCoords[0],
+            lat: targetCoords[1],
+            elevation_m: -2548.0,
+            badge: 'DESTINATION',
+            description: 'Primary exploration destination targeted for scientific sampling, field observation, or traverse traversal.',
+            actionHint: 'Click Pick to select a custom destination on the 3D map'
+          }}
+          className="w-full"
+        >
+          <div className="flex items-center justify-between bg-mars-dark/60 border border-mars-border p-2.5 rounded-lg text-xs hover:border-mars-subtle transition">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-rose-500" />
+              <div>
+                <div className="text-[10px] uppercase text-mars-subtle font-semibold">Exploration Target</div>
+                <div className="text-white font-medium truncate max-w-[170px]">{targetName}</div>
+                <div className="text-[10px] text-mars-subtle font-mono">{targetCoords[1].toFixed(4)}°N, {targetCoords[0].toFixed(4)}°E</div>
+              </div>
             </div>
+            <button
+              onClick={() => onSetClickMode('target')}
+              className={`px-2.5 py-1 rounded text-[11px] font-medium transition ${
+                clickMode === 'target'
+                  ? 'bg-rose-500 text-white font-semibold'
+                  : 'bg-mars-border hover:bg-mars-border/80 text-white'
+              }`}
+            >
+              <Navigation className="w-3 h-3 inline mr-1" />
+              {clickMode === 'target' ? 'Click Map...' : 'Pick'}
+            </button>
           </div>
-          <button
-            onClick={() => onSetClickMode('target')}
-            className={`px-2.5 py-1 rounded text-[11px] font-medium transition ${
-              clickMode === 'target'
-                ? 'bg-rose-500 text-white font-semibold'
-                : 'bg-mars-border hover:bg-mars-border/80 text-white'
-            }`}
-          >
-            <Navigation className="w-3 h-3 inline mr-1" />
-            {clickMode === 'target' ? 'Click Map...' : 'Pick'}
-          </button>
-        </div>
+        </LocationHoverWrapper>
       </div>
 
       {/* Target Presets Quick Bar */}
       <div>
-        <label className="text-[11px] text-mars-subtle block mb-1 font-medium">Quick Target Presets:</label>
+        <label className="text-[11px] text-mars-subtle block mb-1 font-medium">Quick Target Presets (Hover for Details):</label>
         <div className="grid grid-cols-2 gap-1.5 text-[11px]">
           {scienceTargets.slice(1, 5).map((t) => (
-            <button
+            <LocationHoverWrapper
               key={t.target_id}
-              onClick={() => onSelectTargetPreset(t)}
-              className="text-left bg-mars-dark/40 hover:bg-mars-border/50 border border-mars-border/70 px-2 py-1.5 rounded truncate text-mars-subtle hover:text-white transition"
+              info={{
+                name: t.name,
+                category: 'Science Target',
+                lon: t.lon,
+                lat: t.lat,
+                score: t.composite_score || t.scientific_relevance * 10,
+                scoreLabel: 'Science Priority',
+                geologicalUnit: t.geological_unit,
+                mineralogy: t.mineralogy,
+                badge: t.target_id,
+                description: t.description || t.investigation_objective,
+                keyFacts: [
+                  { label: 'Unit Symbol', value: t.unit_symbol },
+                  { label: 'Instrument', value: t.supporting_instrument }
+                ],
+                actionHint: 'Click to select this target preset'
+              }}
+              className="w-full"
             >
-              🎯 {t.name.split(' (')[0]}
-            </button>
+              <button
+                onClick={() => onSelectTargetPreset(t)}
+                className="w-full text-left bg-mars-dark/40 hover:bg-mars-border/50 border border-mars-border/70 px-2 py-1.5 rounded truncate text-mars-subtle hover:text-white transition"
+              >
+                🎯 {t.name.split(' (')[0]}
+              </button>
+            </LocationHoverWrapper>
           ))}
         </div>
       </div>

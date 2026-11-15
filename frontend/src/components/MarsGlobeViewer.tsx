@@ -18,6 +18,7 @@ import {
   Layers,
   ChevronRight
 } from 'lucide-react';
+import { LocationDetailTooltip, LocationHoverWrapper, LocationInfo } from './LocationDetailTooltip';
 
 export interface MarsGlobeViewerProps {
   meshData?: TerrainMesh3DResponse;
@@ -40,16 +41,116 @@ const MARS_OBLIQUITY_DEG = 25.19; // Mars axial tilt
 const JEZERO_LON = 77.45;
 const JEZERO_LAT = 18.44;
 
-// Major Martian Landmarks with Documented Planetary Coordinates
-const PLANETARY_LANDMARKS = [
-  { name: 'Jezero Crater (EVA Site)', lon: 77.45, lat: 18.44, type: 'eva', desc: 'Perseverance landing site & paleolake delta' },
-  { name: 'Olympus Mons', lon: -133.8, lat: 18.65, type: 'volcano', desc: 'Solar System tallest volcano (21.9 km height)' },
-  { name: 'Valles Marineris', lon: -65.0, lat: -13.9, type: 'canyon', desc: 'Grand canyon system (4,000 km length, 7 km depth)' },
-  { name: 'Gale Crater (Curiosity)', lon: 137.4, lat: -5.4, type: 'crater', desc: 'Mount Sharp sedimentary strata' },
-  { name: 'Hellas Planitia', lon: 70.0, lat: -42.4, type: 'basin', desc: 'Giant 2,300 km impact basin (9 km depth)' },
-  { name: 'North Polar Cap (Planum Boreum)', lon: 0.0, lat: 85.0, type: 'polar', desc: 'Water-ice & seasonal CO2 ice cap' },
-  { name: 'South Polar Cap (Planum Australe)', lon: 0.0, lat: -85.0, type: 'polar', desc: 'Permanent CO2 dry ice deposit' }
+// Major Martian Landmarks with Documented Planetary Coordinates & Topography
+export const PLANETARY_LANDMARKS = [
+  { name: 'Jezero Crater (EVA Site)', lon: 77.45, lat: 18.44, type: 'eva', desc: 'Perseverance landing site, ancient river delta & biosignature exploration basin', elev_m: -2567, dimension: '45 km diameter' },
+  { name: 'Olympus Mons', lon: -133.8, lat: 18.65, type: 'volcano', desc: 'Solar System tallest shield volcano, standing 21.9 km above Mars datum with an 80 km caldera', elev_m: 21900, dimension: '600 km basal diameter' },
+  { name: 'Valles Marineris', lon: -65.0, lat: -13.9, type: 'canyon', desc: 'Vast tectonic canyon network extending 4,000 km with depths reaching 7,000 m', elev_m: -7000, dimension: '4,000 km length, 200 km width' },
+  { name: 'Gale Crater (Curiosity)', lon: 137.4, lat: -5.4, type: 'crater', desc: 'Mount Sharp sedimentary mound preserving layered Martian hydrological history', elev_m: -4500, dimension: '154 km diameter' },
+  { name: 'Hellas Planitia', lon: 70.0, lat: -42.4, type: 'basin', desc: 'Deepest impact basin on Mars (9 km below datum) with highest regional surface pressure', elev_m: -8200, dimension: '2,300 km diameter' },
+  { name: 'North Polar Cap (Planum Boreum)', lon: 0.0, lat: 85.0, type: 'polar', desc: 'Thick water-ice dome capped with seasonal solid carbon dioxide frost deposits', elev_m: -2000, dimension: '1,000 km diameter' },
+  { name: 'South Polar Cap (Planum Australe)', lon: 0.0, lat: -85.0, type: 'polar', desc: 'Perennial dry-ice cap with complex spiral troughs and subglacial salt deposit signatures', elev_m: 3000, dimension: '400 km diameter' }
 ];
+
+export function haversineMarsDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 3396.19; // Mars mean radius in km
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+}
+
+export function getMartianRegionName(lat: number, lon: number): string {
+  for (const lm of PLANETARY_LANDMARKS) {
+    if (Math.abs(lat - lm.lat) < 5.0 && Math.abs(lon - lm.lon) < 5.0) {
+      return `${lm.name} Region`;
+    }
+  }
+  if (lat > 75) return 'Planum Boreum (North Polar Cap)';
+  if (lat < -75) return 'Planum Australe (South Polar Cap)';
+  if (lon >= -145 && lon <= -120 && lat >= 10 && lat <= 28) return 'Tharsis Montes / Olympus Mons Aureole';
+  if (lon >= -100 && lon <= -40 && lat >= -25 && lat <= 5) return 'Valles Marineris Chasma System';
+  if (lon >= 50 && lon <= 95 && lat >= -55 && lat <= -25) return 'Hellas Impact Basin';
+  if (lon >= 70 && lon <= 95 && lat >= 5 && lat <= 25) return 'Isidis Planitia / Jezero Rim';
+  if (lon >= 130 && lon <= 160 && lat >= -15 && lat <= 15) return 'Elysium Planitia / Aeolis Palus';
+  if (lon >= -40 && lon <= 15 && lat >= 0 && lat <= 35) return 'Arabia Terra Ancient Highlands';
+  if (lon >= -60 && lon <= -20 && lat >= 15 && lat <= 40) return 'Chryse Planitia Outflow Channels';
+  if (lon >= 80 && lon <= 140 && lat >= 35 && lat <= 65) return 'Utopia Planitia Lowlands';
+  if (lat > 50) return 'Vastitas Borealis Lowlands';
+  if (lat < -30) return 'Noachis Terra Cratering Province';
+  return 'Martian Surface Regolith';
+}
+
+export function estimateGlobalMarsElevation(lat: number, lon: number): number {
+  for (const lm of PLANETARY_LANDMARKS) {
+    if (Math.abs(lat - lm.lat) < 5.0 && Math.abs(lon - lm.lon) < 5.0) {
+      return lm.elev_m;
+    }
+  }
+  if (lat > 80) return -2000;
+  if (lat < -80) return 3000;
+  if (lon > -150 && lon < -90 && lat > -15 && lat < 30) return 6000;
+  if (lon > 50 && lon < 90 && lat > -50 && lat < -30) return -7500;
+  return -1200;
+}
+
+export function terrainWorldToLonLat(x: number, z: number, mesh: TerrainMesh3DResponse) {
+  const [minLon, minLat, maxLon, maxLat] = mesh.bounds_lonlat;
+  const worldW = 32;
+  const worldH = 30;
+
+  const u = x / worldW + 0.5;
+  const v = 0.5 - z / worldH;
+
+  if (u < 0 || u > 1 || v < 0 || v > 1) return null;
+
+  const lon = minLon + u * (maxLon - minLon);
+  const lat = minLat + v * (maxLat - minLat);
+
+  const gx = Math.min(mesh.grid_width - 1, Math.max(0, Math.floor(u * mesh.grid_width)));
+  const gy = Math.min(mesh.grid_height - 1, Math.max(0, Math.floor((1.0 - v) * mesh.grid_height)));
+  const idx = gy * mesh.grid_width + gx;
+  const elev = mesh.elevations[idx] ?? mesh.min_elev_m;
+
+  return { lon, lat, elev, u, v, gx, gy };
+}
+
+export function computeLocalSlope(gx: number, gy: number, mesh: TerrainMesh3DResponse): number {
+  const w = mesh.grid_width;
+  const h = mesh.grid_height;
+  const x0 = Math.max(0, gx - 1);
+  const x1 = Math.min(w - 1, gx + 1);
+  const y0 = Math.max(0, gy - 1);
+  const y1 = Math.min(h - 1, gy + 1);
+
+  const eX0 = mesh.elevations[gy * w + x0] ?? mesh.min_elev_m;
+  const eX1 = mesh.elevations[gy * w + x1] ?? mesh.min_elev_m;
+  const eY0 = mesh.elevations[y0 * w + gx] ?? mesh.min_elev_m;
+  const eY1 = mesh.elevations[y1 * w + gx] ?? mesh.min_elev_m;
+
+  const dxMeters = Math.max(1, (mesh.bounds_meters[2] - mesh.bounds_meters[0]) / w) * (x1 - x0 || 1);
+  const dyMeters = Math.max(1, (mesh.bounds_meters[3] - mesh.bounds_meters[1]) / h) * (y1 - y0 || 1);
+
+  const dzdx = (eX1 - eX0) / dxMeters;
+  const dzdy = (eY1 - eY0) / dyMeters;
+  const grad = Math.sqrt(dzdx * dzdx + dzdy * dzdy);
+  return (Math.atan(grad) * 180) / Math.PI;
+}
+
+export function findLocationInfo(obj: THREE.Object3D | null): LocationInfo | null {
+  let curr: THREE.Object3D | null = obj;
+  while (curr) {
+    if (curr.userData && curr.userData.locationInfo) {
+      return curr.userData.locationInfo as LocationInfo;
+    }
+    curr = curr.parent;
+  }
+  return null;
+}
 
 /**
  * Coordinate Transformation:
@@ -106,6 +207,16 @@ export const MarsGlobeViewer: React.FC<MarsGlobeViewerProps> = ({
     altitudeKm: 5800,
     distanceUnits: 26.0
   });
+
+  // Hovered Location Details & Mouse Coordinates
+  const [hoveredLocation, setHoveredLocation] = useState<LocationInfo | null>(null);
+  const [mouseScreenPos, setMouseScreenPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+
+  const viewLevelRef = useRef<'globe' | 'surface'>(viewLevel);
+  viewLevelRef.current = viewLevel;
+
+  const meshDataRef = useRef<TerrainMesh3DResponse | undefined>(meshData);
+  meshDataRef.current = meshData;
 
   // Three.js Core References
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -315,7 +426,25 @@ export const MarsGlobeViewer: React.FC<MarsGlobeViewerProps> = ({
     PLANETARY_LANDMARKS.forEach((lm) => {
       const pos = latLonToCartesian(lm.lat, lm.lon, MARS_RADIUS + 0.08);
       const isEva = lm.type === 'eva';
-      const marker = createGlobeLandmarkPin(isEva ? 0xEF4444 : 0x38BDF8, isEva ? 0.35 : 0.22, isEva);
+      const marker = createGlobeLandmarkPin(
+        isEva ? 0xEF4444 : 0x38BDF8,
+        isEva ? 0.35 : 0.22,
+        isEva,
+        {
+          name: lm.name,
+          category: 'Landmark',
+          lon: lm.lon,
+          lat: lm.lat,
+          elevation_m: lm.elev_m,
+          badge: lm.type.toUpperCase(),
+          description: lm.desc,
+          keyFacts: [
+            { label: 'Scale / Dimension', value: lm.dimension },
+            { label: 'Planetary Elevation', value: `${lm.elev_m > 0 ? '+' : ''}${lm.elev_m.toLocaleString()} m` }
+          ],
+          actionHint: lm.type === 'eva' ? 'Click Descent to Jezero for 3D terrain' : 'Double-click to center view on this landmark'
+        }
+      );
       marker.position.copy(pos);
       marker.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), pos.clone().normalize());
       globeMarkersGroup.add(marker);
@@ -333,10 +462,141 @@ export const MarsGlobeViewer: React.FC<MarsGlobeViewerProps> = ({
     surfaceGroup.add(surfaceMarkersGroup);
     surfaceMarkersGroupRef.current = surfaceMarkersGroup;
 
-    // Double-Click Raycaster: Focus or descend into region
+    // Hover Raycaster: Detect locations and display rich key details
     const dom = renderer.domElement;
+
+    const onPointerMove = (e: MouseEvent) => {
+      const rect = dom.getBoundingClientRect();
+      const mouseX = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+      const mouseY = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+      setMouseScreenPos({ x: e.clientX, y: e.clientY });
+
+      const raycaster = new THREE.Raycaster();
+      raycaster.setFromCamera(new THREE.Vector2(mouseX, mouseY), camera);
+
+      if (viewLevelRef.current === 'globe') {
+        // 1. Raycast against globe landmark pins
+        if (globeMarkersGroupRef.current) {
+          const hits = raycaster.intersectObjects(globeMarkersGroupRef.current.children, true);
+          if (hits.length > 0) {
+            const info = findLocationInfo(hits[0].object);
+            if (info) {
+              setHoveredLocation(info);
+              return;
+            }
+          }
+        }
+
+        // 2. Raycast against spherical Mars globe mesh
+        if (globeMeshRef.current) {
+          const hits = raycaster.intersectObject(globeMeshRef.current);
+          if (hits.length > 0) {
+            const hitPt = hits[0].point;
+            const untilted = hitPt.clone().applyAxisAngle(new THREE.Vector3(0, 0, 1), -THREE.MathUtils.degToRad(MARS_OBLIQUITY_DEG));
+            const { lat, lon } = cartesianToLatLon(untilted);
+
+            // Check if cursor is close to any landmark
+            let matchedLandmark: typeof PLANETARY_LANDMARKS[0] | null = null;
+            for (const lm of PLANETARY_LANDMARKS) {
+              if (Math.abs(lat - lm.lat) < 4.5 && Math.abs(lon - lm.lon) < 4.5) {
+                matchedLandmark = lm;
+                break;
+              }
+            }
+
+            if (matchedLandmark) {
+              setHoveredLocation({
+                name: matchedLandmark.name,
+                category: 'Landmark',
+                lon: matchedLandmark.lon,
+                lat: matchedLandmark.lat,
+                elevation_m: matchedLandmark.elev_m,
+                badge: matchedLandmark.type.toUpperCase(),
+                description: matchedLandmark.desc,
+                keyFacts: [
+                  { label: 'Scale / Dimension', value: matchedLandmark.dimension },
+                  { label: 'Planetary Elevation', value: `${matchedLandmark.elev_m > 0 ? '+' : ''}${matchedLandmark.elev_m.toLocaleString()} m` }
+                ],
+                actionHint: matchedLandmark.type === 'eva' ? 'Click Descent to Jezero for 3D terrain' : 'Double-click to center on landmark'
+              });
+              return;
+            }
+
+            const distKm = Math.round(haversineMarsDistanceKm(lat, lon, JEZERO_LAT, JEZERO_LON));
+            const region = getMartianRegionName(lat, lon);
+            const estElev = estimateGlobalMarsElevation(lat, lon);
+
+            setHoveredLocation({
+              name: region,
+              category: 'Martian Surface',
+              lon: parseFloat(lon.toFixed(3)),
+              lat: parseFloat(lat.toFixed(3)),
+              elevation_m: estElev,
+              badge: 'MOLA ORBITAL',
+              description: `Global Mars planetary surface. Positioned ${distKm.toLocaleString()} km from Jezero Crater EVA site.`,
+              keyFacts: [
+                { label: 'Distance to Jezero Base', value: `${distKm.toLocaleString()} km` },
+                { label: 'Coordinate System', value: 'IAU Areocentric East-Positive' }
+              ],
+              actionHint: 'Double-click to rotate & zoom towards this location'
+            });
+            return;
+          }
+        }
+
+        setHoveredLocation(null);
+      } else if (viewLevelRef.current === 'surface') {
+        // 1. Raycast against surface markers (Start base, Goal target, Habitat domes, Science diamonds)
+        if (surfaceMarkersGroupRef.current) {
+          const hits = raycaster.intersectObjects(surfaceMarkersGroupRef.current.children, true);
+          if (hits.length > 0) {
+            const info = findLocationInfo(hits[0].object);
+            if (info) {
+              setHoveredLocation(info);
+              return;
+            }
+          }
+        }
+
+        // 2. Raycast against Jezero 3D DEM terrain mesh
+        if (surfaceMeshRef.current && meshDataRef.current) {
+          const hits = raycaster.intersectObject(surfaceMeshRef.current);
+          if (hits.length > 0) {
+            const hitPt = hits[0].point;
+            const pt = terrainWorldToLonLat(hitPt.x, hitPt.z, meshDataRef.current);
+            if (pt) {
+              const slope = computeLocalSlope(pt.gx, pt.gy, meshDataRef.current);
+              setHoveredLocation({
+                name: `Jezero Regolith (${pt.lat.toFixed(4)}°N, ${pt.lon.toFixed(4)}°E)`,
+                category: 'Martian Surface',
+                lon: parseFloat(pt.lon.toFixed(4)),
+                lat: parseFloat(pt.lat.toFixed(4)),
+                elevation_m: Math.round(pt.elev),
+                slope_deg: parseFloat(slope.toFixed(1)),
+                badge: slope > 15 ? 'HAZARD (STEEP SCARP)' : slope > 8 ? 'CAUTION (MODERATE)' : 'TRAVERSABLE (SAFE)',
+                badgeColor: slope > 15 ? 'bg-rose-500/20 text-rose-300 border-rose-500/40' : slope > 8 ? 'bg-amber-500/20 text-amber-300 border-amber-500/40' : 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40',
+                description: `High-resolution Jezero CTX DTM surface. Elevation is ${Math.round(pt.elev)} m datum with ${slope.toFixed(1)}° local gradient.`,
+                actionHint: 'Double-click to designate as custom goal waypoint'
+              });
+              return;
+            }
+          }
+        }
+
+        setHoveredLocation(null);
+      }
+    };
+
+    const onPointerLeave = () => {
+      setHoveredLocation(null);
+    };
+
+    dom.addEventListener('pointermove', onPointerMove);
+    dom.addEventListener('pointerleave', onPointerLeave);
+
+    // Double-Click Raycaster: Focus or descend into region
     const onDoubleClick = (e: MouseEvent) => {
-      if (viewLevel !== 'globe' || !globeMeshRef.current) return;
+      if (viewLevelRef.current !== 'globe' || !globeMeshRef.current) return;
 
       const rect = dom.getBoundingClientRect();
       const mouseX = ((e.clientX - rect.left) / rect.width) * 2 - 1;
@@ -440,6 +700,8 @@ export const MarsGlobeViewer: React.FC<MarsGlobeViewerProps> = ({
 
     return () => {
       cancelAnimationFrame(reqId);
+      dom.removeEventListener('pointermove', onPointerMove);
+      dom.removeEventListener('pointerleave', onPointerLeave);
       dom.removeEventListener('dblclick', onDoubleClick);
       window.removeEventListener('resize', handleResize);
       if (mountRef.current && dom) {
@@ -565,7 +827,16 @@ export const MarsGlobeViewer: React.FC<MarsGlobeViewerProps> = ({
 
     // 2. Start Base Pin (Green)
     const startP = lonLatToTerrainWorld(startCoords[0], startCoords[1], meshData, vertExaggeration);
-    const startPin = createTerrainPinMesh(0x22C55E, 0.35);
+    const startPin = createTerrainPinMesh(0x22C55E, 0.35, {
+      name: 'Octavia E. Butler Landing (EVA Base Camp)',
+      category: 'EVA Staging Base',
+      lon: startCoords[0],
+      lat: startCoords[1],
+      elevation_m: -2567.2,
+      badge: 'STAGING BASE',
+      description: 'Initial landing site of Mars 2020 Perseverance. Primary EVA egress and staging origin in Jezero Crater.',
+      actionHint: 'Mission staging point'
+    });
     startPin.position.set(startP.x, startP.y, startP.z);
     surfaceMarkers.add(startPin);
 
@@ -573,7 +844,22 @@ export const MarsGlobeViewer: React.FC<MarsGlobeViewerProps> = ({
     if (habitatCandidates && habitatCandidates.length > 0) {
       habitatCandidates.forEach((cand) => {
         const p = lonLatToTerrainWorld(cand.lon, cand.lat, meshData, vertExaggeration);
-        const dome = createHabitatDomeMesh(0x38BDF8, 0.45);
+        const dome = createHabitatDomeMesh(0x38BDF8, 0.45, {
+          name: cand.name,
+          category: 'Habitat Site',
+          lon: cand.lon,
+          lat: cand.lat,
+          elevation_m: cand.elevation_m,
+          slope_deg: cand.slope_deg,
+          roughness_m: cand.roughness_m,
+          score: cand.composite_suitability,
+          scoreLabel: 'MCDA Suitability',
+          badge: cand.classification,
+          badgeColor: cand.classification === 'OPTIMAL' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40',
+          capacity: cand.operational_capacity,
+          description: `Multi-criteria evaluated exploration base. Pros: ${cand.pros.slice(0, 2).join('; ') || 'Flat topography, prime scientific reach.'}`,
+          actionHint: 'Click in Base Siting tab to designate as active habitat'
+        });
         dome.position.set(p.x, p.y, p.z);
         surfaceMarkers.add(dome);
       });
@@ -581,7 +867,16 @@ export const MarsGlobeViewer: React.FC<MarsGlobeViewerProps> = ({
 
     // 3. Goal Target Pin (Red)
     const targetP = lonLatToTerrainWorld(targetCoords[0], targetCoords[1], meshData, vertExaggeration);
-    const targetPin = createTerrainPinMesh(0xEF4444, 0.42);
+    const targetPin = createTerrainPinMesh(0xEF4444, 0.42, {
+      name: 'Hawksbill Gap Delta Front (Primary Target)',
+      category: 'Exploration Waypoint',
+      lon: targetCoords[0],
+      lat: targetCoords[1],
+      elevation_m: -2548.0,
+      badge: 'PRIMARY GOAL',
+      description: 'Fluvial bottomset beds with high biosignature preservation potential and layered deltaic siltstones.',
+      actionHint: 'Mission traverse destination'
+    });
     targetPin.position.set(targetP.x, targetP.y, targetP.z);
     surfaceMarkers.add(targetPin);
 
@@ -589,7 +884,23 @@ export const MarsGlobeViewer: React.FC<MarsGlobeViewerProps> = ({
     scienceTargets.forEach((t) => {
       const p = lonLatToTerrainWorld(t.lon, t.lat, meshData, vertExaggeration);
       const isSel = t.target_id === selectedTargetId;
-      const diamond = createTerrainDiamondMesh(isSel ? 0xC084FC : 0x818CF8, isSel ? 0.45 : 0.28);
+      const diamond = createTerrainDiamondMesh(isSel ? 0xC084FC : 0x818CF8, isSel ? 0.45 : 0.28, {
+        name: t.name,
+        category: 'Science Target',
+        lon: t.lon,
+        lat: t.lat,
+        score: t.composite_score || t.scientific_relevance * 10,
+        scoreLabel: 'Science Priority',
+        geologicalUnit: t.geological_unit,
+        mineralogy: t.mineralogy,
+        badge: t.target_id,
+        description: t.description || t.investigation_objective,
+        keyFacts: [
+          { label: 'Unit Symbol', value: t.unit_symbol },
+          { label: 'Instrument', value: t.supporting_instrument }
+        ],
+        actionHint: 'Click to select and view spectral data'
+      });
       diamond.position.set(p.x, p.y + 0.35, p.z);
       surfaceMarkers.add(diamond);
     });
@@ -838,19 +1149,36 @@ export const MarsGlobeViewer: React.FC<MarsGlobeViewerProps> = ({
           <div className="bg-mars-panel/90 backdrop-blur border border-mars-border p-1.5 rounded-lg flex items-center gap-1.5 w-fit text-xs">
             <span className="text-mars-subtle text-[11px] font-mono px-1">FLY TO:</span>
             {PLANETARY_LANDMARKS.slice(0, 5).map((lm) => (
-              <button
+              <LocationHoverWrapper
                 key={lm.name}
-                onClick={() => {
-                  if (lm.type === 'eva') {
-                    handleFlyToJezero();
-                  } else {
-                    flyCameraToPlanetaryTarget(lm.lat, lm.lon, 18.0);
-                  }
+                info={{
+                  name: lm.name,
+                  category: 'Landmark',
+                  lon: lm.lon,
+                  lat: lm.lat,
+                  elevation_m: lm.elev_m,
+                  badge: lm.type.toUpperCase(),
+                  description: lm.desc,
+                  keyFacts: [
+                    { label: 'Scale / Dimension', value: lm.dimension },
+                    { label: 'Planetary Elevation', value: `${lm.elev_m > 0 ? '+' : ''}${lm.elev_m.toLocaleString()} m` }
+                  ],
+                  actionHint: lm.type === 'eva' ? 'Click to descend into Jezero 3D terrain' : 'Click to center camera on landmark'
                 }}
-                className="px-2 py-0.5 rounded text-[11px] bg-mars-dark/60 border border-mars-border text-mars-subtle hover:text-white hover:border-mars-accent transition"
               >
-                {lm.name.split(' ')[0]}
-              </button>
+                <button
+                  onClick={() => {
+                    if (lm.type === 'eva') {
+                      handleFlyToJezero();
+                    } else {
+                      flyCameraToPlanetaryTarget(lm.lat, lm.lon, 18.0);
+                    }
+                  }}
+                  className="px-2 py-0.5 rounded text-[11px] bg-mars-dark/60 border border-mars-border text-mars-subtle hover:text-white hover:border-mars-accent transition"
+                >
+                  {lm.name.split(' ')[0]}
+                </button>
+              </LocationHoverWrapper>
             ))}
           </div>
         )}
@@ -902,6 +1230,9 @@ export const MarsGlobeViewer: React.FC<MarsGlobeViewerProps> = ({
         <span className="text-slate-500">•</span>
         <span className="text-slate-400">Left-Drag: 360° Rotate | Scroll: Zoom | DblClick: Focus</span>
       </div>
+
+      {/* Floating 3D Cursor Location Tooltip */}
+      <LocationDetailTooltip info={hoveredLocation} x={mouseScreenPos.x} y={mouseScreenPos.y} />
     </div>
   );
 };
@@ -934,14 +1265,16 @@ function lonLatToTerrainWorld(lon: number, lat: number, mesh: TerrainMesh3DRespo
 // ---------------------------------------------------------------------------
 // 3D Visual Mesh Generators
 // ---------------------------------------------------------------------------
-function createGlobeLandmarkPin(colorHex: number, size: number, isPulsing: boolean) {
+function createGlobeLandmarkPin(colorHex: number, size: number, isPulsing: boolean, locationInfo?: LocationInfo) {
   const group = new THREE.Group();
+  if (locationInfo) group.userData.locationInfo = locationInfo;
 
   // Vertical light needle
   const pinGeom = new THREE.CylinderGeometry(size * 0.12, size * 0.28, size * 2.8, 12);
   pinGeom.translate(0, size * 1.4, 0);
   const pinMat = new THREE.MeshBasicMaterial({ color: colorHex, transparent: true, opacity: 0.9 });
   const pin = new THREE.Mesh(pinGeom, pinMat);
+  if (locationInfo) pin.userData.locationInfo = locationInfo;
   group.add(pin);
 
   // Summit orb
@@ -949,6 +1282,7 @@ function createGlobeLandmarkPin(colorHex: number, size: number, isPulsing: boole
   const orbMat = new THREE.MeshBasicMaterial({ color: colorHex });
   const orb = new THREE.Mesh(orbGeom, orbMat);
   orb.position.y = size * 2.8;
+  if (locationInfo) orb.userData.locationInfo = locationInfo;
   group.add(orb);
 
   // Landing ellipse ring on surface
@@ -957,29 +1291,34 @@ function createGlobeLandmarkPin(colorHex: number, size: number, isPulsing: boole
   const ringMat = new THREE.MeshBasicMaterial({ color: colorHex, side: THREE.DoubleSide, transparent: true, opacity: 0.75 });
   const ring = new THREE.Mesh(ringGeom, ringMat);
   ring.position.y = 0.05;
+  if (locationInfo) ring.userData.locationInfo = locationInfo;
   group.add(ring);
 
   return group;
 }
 
-function createTerrainPinMesh(colorHex: number, radius: number) {
+function createTerrainPinMesh(colorHex: number, radius: number, locationInfo?: LocationInfo) {
   const group = new THREE.Group();
+  if (locationInfo) group.userData.locationInfo = locationInfo;
+
   const sphereGeom = new THREE.SphereGeometry(radius, 16, 16);
   const mat = new THREE.MeshStandardMaterial({ color: colorHex, emissive: colorHex, emissiveIntensity: 0.45 });
   const sphere = new THREE.Mesh(sphereGeom, mat);
   sphere.position.y = radius * 2.8;
+  if (locationInfo) sphere.userData.locationInfo = locationInfo;
   group.add(sphere);
 
   const stickGeom = new THREE.CylinderGeometry(0.04, 0.04, radius * 2.8);
   const stickMat = new THREE.MeshBasicMaterial({ color: 0xFFFFFF });
   const stick = new THREE.Mesh(stickGeom, stickMat);
   stick.position.y = radius * 1.4;
+  if (locationInfo) stick.userData.locationInfo = locationInfo;
   group.add(stick);
 
   return group;
 }
 
-function createTerrainDiamondMesh(colorHex: number, size: number) {
+function createTerrainDiamondMesh(colorHex: number, size: number, locationInfo?: LocationInfo) {
   const geom = new THREE.OctahedronGeometry(size);
   const mat = new THREE.MeshStandardMaterial({
     color: colorHex,
@@ -987,11 +1326,15 @@ function createTerrainDiamondMesh(colorHex: number, size: number) {
     emissiveIntensity: 0.55,
     roughness: 0.25
   });
-  return new THREE.Mesh(geom, mat);
+  const mesh = new THREE.Mesh(geom, mat);
+  if (locationInfo) mesh.userData.locationInfo = locationInfo;
+  return mesh;
 }
 
-function createHabitatDomeMesh(colorHex: number, radius: number) {
+function createHabitatDomeMesh(colorHex: number, radius: number, locationInfo?: LocationInfo) {
   const group = new THREE.Group();
+  if (locationInfo) group.userData.locationInfo = locationInfo;
+
   // Geodesic hemispherical dome
   const domeGeom = new THREE.SphereGeometry(radius, 16, 12, 0, Math.PI * 2, 0, Math.PI / 2);
   const domeMat = new THREE.MeshStandardMaterial({
@@ -1001,6 +1344,7 @@ function createHabitatDomeMesh(colorHex: number, radius: number) {
     wireframe: false
   });
   const dome = new THREE.Mesh(domeGeom, domeMat);
+  if (locationInfo) dome.userData.locationInfo = locationInfo;
   group.add(dome);
 
   // Structural base ring
@@ -1009,6 +1353,7 @@ function createHabitatDomeMesh(colorHex: number, radius: number) {
   const ringMat = new THREE.MeshBasicMaterial({ color: colorHex, side: THREE.DoubleSide });
   const ring = new THREE.Mesh(ringGeom, ringMat);
   ring.position.y = 0.02;
+  if (locationInfo) ring.userData.locationInfo = locationInfo;
   group.add(ring);
 
   // Communications beacon mast
@@ -1016,6 +1361,7 @@ function createHabitatDomeMesh(colorHex: number, radius: number) {
   const mastMat = new THREE.MeshBasicMaterial({ color: 0xFFFFFF });
   const mast = new THREE.Mesh(mastGeom, mastMat);
   mast.position.y = radius + (radius * 0.8);
+  if (locationInfo) mast.userData.locationInfo = locationInfo;
   group.add(mast);
 
   return group;

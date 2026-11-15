@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { ReturnabilityResponse, EmergencyEventResponse } from '../types';
 import { RotateCcw, AlertOctagon, CheckCircle2, ShieldAlert, ArrowLeftRight, Zap, RefreshCw } from 'lucide-react';
 import { evaluateReturnability, assessEmergencyEvent } from '../services/api';
+import { LocationHoverWrapper } from './LocationDetailTooltip';
 
 interface ReturnabilityPanelProps {
   startCoords: [number, number];
@@ -99,17 +100,43 @@ export const ReturnabilityPanel: React.FC<ReturnabilityPanelProps> = ({
 
       {/* Main Metric Cards */}
       <div className="grid grid-cols-2 gap-2 text-[11px]">
-        <div className="bg-mars-dark/50 border border-mars-border p-2.5 rounded-lg flex flex-col gap-1">
-          <div className="text-mars-subtle font-medium">Point of No Return (PNR)</div>
-          <div className="font-mono font-bold text-white text-xs">
-            {returnability.point_of_no_return_lonlat
-              ? `${returnability.point_of_no_return_lonlat[0].toFixed(3)}°E, ${returnability.point_of_no_return_lonlat[1].toFixed(3)}°N`
-              : 'Destination Safe'}
+        {returnability.point_of_no_return_lonlat ? (
+          <LocationHoverWrapper
+            info={{
+              name: 'Point of No Return (PNR)',
+              category: 'Exploration Waypoint',
+              lon: returnability.point_of_no_return_lonlat[0],
+              lat: returnability.point_of_no_return_lonlat[1],
+              score: returnability.min_return_margin_pct,
+              scoreLabel: 'Min. Reserve Margin',
+              badge: 'CRITICAL PNR',
+              badgeColor: 'bg-rose-500/20 text-rose-300 border-rose-500/40',
+              description: `Critical traverse limit: beyond this checkpoint, return path duration and metabolic draw will compromise mandatory emergency life support reserves.`,
+              keyFacts: [
+                { label: 'Checkpoint Index', value: `#${returnability.point_of_no_return_idx}` },
+                { label: 'Reserve Margin', value: `${returnability.min_return_margin_pct}% O₂` }
+              ],
+              actionHint: 'Evaluated continuously by Returnability Engine'
+            }}
+            className="w-full"
+          >
+            <div className="bg-mars-dark/50 border border-mars-border p-2.5 rounded-lg flex flex-col gap-1 w-full text-left hover:border-mars-subtle transition">
+              <div className="text-mars-subtle font-medium">Point of No Return (PNR)</div>
+              <div className="font-mono font-bold text-white text-xs">
+                {`${returnability.point_of_no_return_lonlat[0].toFixed(3)}°E, ${returnability.point_of_no_return_lonlat[1].toFixed(3)}°N`}
+              </div>
+              <div className="text-[10px] text-cyan-400">
+                Checkpoint #{returnability.point_of_no_return_idx}
+              </div>
+            </div>
+          </LocationHoverWrapper>
+        ) : (
+          <div className="bg-mars-dark/50 border border-mars-border p-2.5 rounded-lg flex flex-col gap-1">
+            <div className="text-mars-subtle font-medium">Point of No Return (PNR)</div>
+            <div className="font-mono font-bold text-white text-xs">Destination Safe</div>
+            <div className="text-[10px] text-emerald-400">Full Margin Available</div>
           </div>
-          <div className="text-[10px] text-cyan-400">
-            Checkpoint #{returnability.point_of_no_return_idx}
-          </div>
-        </div>
+        )}
 
         <div className="bg-mars-dark/50 border border-mars-border p-2.5 rounded-lg flex flex-col gap-1">
           <div className="text-mars-subtle font-medium">Min. Reserve Margin</div>

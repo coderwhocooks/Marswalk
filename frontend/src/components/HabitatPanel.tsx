@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { HabitatCandidate } from '../types';
 import { Home, Compass, CheckCircle2, AlertCircle, ArrowUpRight, Award, RefreshCw } from 'lucide-react';
 import { fetchHabitatCandidates } from '../services/api';
+import { LocationHoverWrapper } from './LocationDetailTooltip';
 
 interface HabitatPanelProps {
   onSelectBase: (lon: number, lat: number, name: string) => void;
@@ -62,35 +63,60 @@ export const HabitatPanel: React.FC<HabitatPanelProps> = ({ onSelectBase, curren
           const isSelected = cand.site_id === selectedSiteId;
           const isCurrentBase = currentBaseName === cand.name;
           return (
-            <div
+            <LocationHoverWrapper
               key={cand.site_id}
-              onClick={() => setSelectedSiteId(cand.site_id)}
-              className={`p-2.5 rounded-lg border cursor-pointer transition flex items-center justify-between ${
-                isSelected
-                  ? 'bg-mars-dark/80 border-mars-accent shadow'
-                  : 'bg-mars-dark/40 border-mars-border hover:bg-mars-dark/60'
-              }`}
+              info={{
+                name: cand.name,
+                category: 'Habitat Site',
+                lon: cand.lon,
+                lat: cand.lat,
+                elevation_m: cand.elevation_m,
+                slope_deg: cand.slope_deg,
+                roughness_m: cand.roughness_m,
+                score: cand.composite_suitability,
+                scoreLabel: 'MCDA Suitability',
+                badge: cand.classification,
+                badgeColor: cand.classification === 'OPTIMAL' ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/40' : 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40',
+                capacity: cand.operational_capacity,
+                description: `Multi-criteria evaluated exploration base. Pros: ${cand.pros.slice(0, 2).join('; ') || 'Flat topography, prime scientific reach.'}`,
+                keyFacts: [
+                  { label: 'Slope Flatness', value: `${cand.criteria_scores.slope_flatness.toFixed(1)}%` },
+                  { label: 'Surface Smoothness', value: `${cand.criteria_scores.surface_smoothness.toFixed(1)}%` },
+                  { label: 'Science Reachability', value: `${cand.criteria_scores.science_reachability.toFixed(1)}%` }
+                ],
+                actionHint: 'Click to select and inspect MCDA evaluation'
+              }}
+              className="w-full"
             >
-              <div className="flex flex-col gap-0.5">
-                <div className="flex items-center gap-1.5 font-bold text-white text-xs">
-                  <span>#{idx + 1} {cand.name}</span>
-                  {isCurrentBase && (
-                    <span className="text-[9px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-1.5 rounded">
-                      ACTIVE BASE
-                    </span>
-                  )}
+              <div
+                onClick={() => setSelectedSiteId(cand.site_id)}
+                className={`p-2.5 rounded-lg border cursor-pointer transition flex items-center justify-between w-full text-left ${
+                  isSelected
+                    ? 'bg-mars-dark/80 border-mars-accent shadow'
+                    : 'bg-mars-dark/40 border-mars-border hover:bg-mars-dark/60'
+                }`}
+              >
+                <div className="flex flex-col gap-0.5">
+                  <div className="flex items-center gap-1.5 font-bold text-white text-xs">
+                    <span>#{idx + 1} {cand.name}</span>
+                    {isCurrentBase && (
+                      <span className="text-[9px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 px-1.5 rounded">
+                        ACTIVE BASE
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-[10px] text-mars-subtle font-mono">
+                    {cand.lon.toFixed(3)}°E, {cand.lat.toFixed(3)}°N • Elev: {cand.elevation_m}m • Slope: {cand.slope_deg}°
+                  </div>
                 </div>
-                <div className="text-[10px] text-mars-subtle font-mono">
-                  {cand.lon.toFixed(3)}°E, {cand.lat.toFixed(3)}°N • Elev: {cand.elevation_m}m • Slope: {cand.slope_deg}°
+                <div className="flex items-center gap-2">
+                  <div className="text-right">
+                    <div className="font-mono font-bold text-mars-accent text-xs">{cand.composite_suitability}%</div>
+                    <div className="text-[9px] text-emerald-400 font-semibold">{cand.classification}</div>
+                  </div>
                 </div>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="text-right">
-                  <div className="font-mono font-bold text-mars-accent text-xs">{cand.composite_suitability}%</div>
-                  <div className="text-[9px] text-emerald-400 font-semibold">{cand.classification}</div>
-                </div>
-              </div>
-            </div>
+            </LocationHoverWrapper>
           );
         })}
       </div>
